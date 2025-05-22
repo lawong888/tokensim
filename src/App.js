@@ -55,17 +55,17 @@ function App() {
         <TokenPlate tokens={tokens} contextSize={contextSize} />
         <div className="controls">
           <select 
-          value={contextSize} 
-          onChange={(e) => setContextSize(Number(e.target.value))}
-        >
-          {CONTEXT_SIZES.map(size => (
-            <option key={size} value={size}>{size.toLocaleString()} tokens</option>
-          ))}
-        </select>
-        <button onClick={() => generateTokens('user')}>Ask LLM</button>
-        <button onClick={() => generateTokens('response')}>Add Response</button>
-        <button onClick={() => setTokens([])}>Reset</button>
-      </div>
+            value={contextSize} 
+            onChange={(e) => setContextSize(Number(e.target.value))}
+          >
+            {CONTEXT_SIZES.map(size => (
+              <option key={size} value={size}>{size.toLocaleString()} tokens</option>
+            ))}
+          </select>
+          <button onClick={() => generateTokens('user')}>Ask LLM</button>
+          <button onClick={() => generateTokens('response')}>Add Response</button>
+          <button onClick={() => setTokens([])}>Reset</button>
+        </div>
       <TokenMeter counts={tokenCounts} total={contextSize} />
       </div>
     </div>
