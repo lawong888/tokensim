@@ -1,0 +1,71 @@
+.app {
+  padding: 20px;
+  max-width: 100vw;
+  min-height: 100vh;
+}
+
+.token-plate {
+  position: relative;
+  border: 2px solid #ccc;
+  min-height: 200px;
+  margin: 20px 0;
+  padding: 10px;
+  background: #f8f8f8;
+}
+
+.system-block {
+  position: sticky;
+  top: 0;
+  background: rgba(42, 91, 215, 0.1);
+  padding: 5px;
+  margin-bottom: 10px;
+}
+
+.content-area {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16px, 1fr));
+  gap: 4px;
+}
+
+.token-brick {
+  height: 20px;
+  border-radius: 3px;
+  transition: all 0.3s ease;
+}
+
+.token-brick.system {
+  background: #2a5bd7;
+}
+
+.token-brick.user {
+  background: #2ad736;
+}
+
+.token-brick.response {
+  background: #d72ac4;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+
+button, select {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  background: white;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .content-area {
+    grid-template-columns: repeat(auto-fill, minmax(12px, 1fr));
+  }
+  
+  .token-brick {
+    height: 15px;
+  }
+}
