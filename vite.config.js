@@ -8,10 +8,8 @@ export default defineConfig({
     strictPort: true,
     port: 5173,
     // Handle SPA fallback for client-side routing
-    historyApiFallback: {
-      disableDotRule: true,
-      index: '/'
-    }
+    historyApiFallback: true,
+    base: './'
   },
   build: {
     outDir: 'dist',
