@@ -50,8 +50,10 @@ function App() {
 
   return (
     <div className="app">
-      <TokenPlate tokens={tokens} contextSize={contextSize} />
-      <div className="controls">
+      <h1>LLM Token Simulator</h1>
+      <div className="simulator-container">
+        <TokenPlate tokens={tokens} contextSize={contextSize} />
+        <div className="controls">
         <select 
           value={contextSize} 
           onChange={(e) => setContextSize(Number(e.target.value))}

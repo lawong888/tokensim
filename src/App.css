@@ -2,6 +2,13 @@
   padding: 20px;
   max-width: 100vw;
   min-height: 100vh;
+  text-align: center;
+}
+
+.simulator-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
 }
 
 .token-plate {
