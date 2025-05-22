@@ -54,7 +54,7 @@ function App() {
       <div className="simulator-container">
         <TokenPlate tokens={tokens} contextSize={contextSize} />
         <div className="controls">
-        <select 
+          <select 
           value={contextSize} 
           onChange={(e) => setContextSize(Number(e.target.value))}
         >
@@ -67,6 +67,7 @@ function App() {
         <button onClick={() => setTokens([])}>Reset</button>
       </div>
       <TokenMeter counts={tokenCounts} total={contextSize} />
+      </div>
     </div>
   )
 }
