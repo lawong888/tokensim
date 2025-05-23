@@ -66,7 +66,7 @@ function App() {
           <button onClick={() => generateTokens('response')}>Add Response</button>
           <button onClick={() => setTokens([])}>Reset</button>
         </div>
-      <TokenMeter counts={tokenCounts} total={contextSize} />
+        <TokenMeter counts={tokenCounts} total={contextSize} />
       </div>
     </div>
   )
