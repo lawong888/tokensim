@@ -10,7 +10,7 @@ export default function TokenPlate({ tokens, contextSize }) {
   })
 
   return (
-    <div className="token-plate" style={{ maxWidth: `${contextSize / 2}px` }}>
+    <div className="token-plate" style={{ maxWidth: "100%" }}>
       <div className="system-block">
         {tokens.filter(t => t.type === 'system').map(token => (
           <animated.div 
