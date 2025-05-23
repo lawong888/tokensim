@@ -13,11 +13,17 @@ export default function TokenPlate({ tokens, contextSize }) {
     <div className="token-plate" style={{ maxWidth: `${contextSize / 2}px` }}>
       <div className="system-block">
         {tokens.filter(t => t.type === 'system').map(token => (
-          <div 
+          <animated.div 
             key={token.id}
             className="token-brick system"
-            style={{ width: `${token.length * 8}px` }}
-          />
+            style={{ 
+              width: `${token.length * 8}px`,
+              opacity: 1,
+              transform: 'translateY(0px)'
+            }}
+          >
+            {token.length}
+          </animated.div>
         ))}
       </div>
       <div className="content-area">
@@ -28,7 +34,9 @@ export default function TokenPlate({ tokens, contextSize }) {
               ...style,
               width: `${token.length * 8}px`
             }}
-          />
+          >
+            {token.length}
+          </animated.div>
         ))}
       </div>
     </div>
