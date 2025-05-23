@@ -59,6 +59,18 @@
   background: #d72ac4;
 }
 
+.meter-segment.system {
+  background: #2a5bd7;
+}
+
+.meter-segment.user {
+  background: #2ad736;
+}
+
+.meter-segment.response {
+  background: #d72ac4;
+}
+
 .controls {
   display: flex;
   gap: 10px;
