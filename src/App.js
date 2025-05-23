@@ -28,6 +28,8 @@ function App() {
       acc[token.type] += token.length
       return acc
     }, { system: 0, user: 0, response: 0 })
+    console.log('Current tokens:', tokens)
+    console.log('Token counts:', counts)
     setTokenCounts(counts)
   }, [tokens])
 
@@ -40,11 +42,17 @@ function App() {
     
     setTokens(prev => {
       const updated = [...prev, ...newTokens]
-      const totalLength = updated.reduce((sum, t) => sum + t.length, 0)
-      // Remove oldest tokens if over context size
-      return totalLength > contextSize 
-        ? updated.slice(-Math.floor(contextSize / 2)) 
-        : updated
+      // Calculate total length and evict oldest tokens if needed
+      let totalLength = updated.reduce((sum, t) => sum + t.length, 0)
+      let startIndex = 0
+      
+      // Keep removing oldest tokens until we're under context size
+      while (totalLength > contextSize && startIndex < updated.length) {
+        totalLength -= updated[startIndex].length
+        startIndex++
+      }
+      
+      return updated.slice(startIndex)
     })
   }
 
