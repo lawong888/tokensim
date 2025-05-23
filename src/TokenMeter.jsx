@@ -20,14 +20,26 @@ export default function TokenMeter({ counts, total }) {
         }}
       >
         <div
-          className="system-fill"
+          className="meter-segment system"
           style={{
             width: `${(counts.system / total) * 100}%`,
-            height: '100%',
-            backgroundColor: '#2a5bd7'
+            height: '100%'
           }}
         />
-        {/* Similar for user and response fills */}
+        <div
+          className="meter-segment user"
+          style={{
+            width: `${(counts.user / total) * 100}%`,
+            height: '100%'
+          }}
+        />
+        <div
+          className="meter-segment response"
+          style={{
+            width: `${(counts.response / total) * 100}%`,
+            height: '100%'
+          }}
+        />
       </div>
       <div className="token-counts">
         System: {counts.system} | User: {counts.user} | Response: {counts.response} | Free: {total - used}
