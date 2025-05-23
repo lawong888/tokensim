@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useTransition, animated } from '@react-spring/web'
 import { v4 as uuidv4 } from 'uuid'
-import TokenPlate from './TokenPlate'
-import TokenMeter from './TokenMeter'
+import TokenPlate from './TokenPlate.jsx'
+import TokenMeter from './TokenMeter.jsx'
 import './App.css'
 
 const CONTEXT_SIZES = [1024, 2048, 4096, 8192, 32768]
