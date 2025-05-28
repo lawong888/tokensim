@@ -9,12 +9,9 @@ export default defineConfig({
     jsx: 'react'
   },
   server: {
-    host: '127.0.0.1',
-    strictPort: false,
+    host: 'localhost',
     port: 5174,
-    // Handle SPA fallback for client-side routing
-    historyApiFallback: true,
-    base: './'
+    open: true
   },
   build: {
     outDir: 'dist',
