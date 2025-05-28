@@ -14,7 +14,7 @@ function App() {
   const [inputTokenPrice, setInputTokenPrice] = useState(0.003)
   const [outputTokenPrice, setOutputTokenPrice] = useState(0.009)
   const [sessionTotalCost, setSessionTotalCost] = useState(0)
-  const [totalTokensProcessed, setTotalTokensProcessed] = useState(0)
+  const [totalTokensGenerated, setTotalTokensGenerated] = useState(0)
   const [requestCount, setRequestCount] = useState(0)
   const [autoAsk, setAutoAsk] = useState(false)
 
@@ -34,13 +34,14 @@ function App() {
     
     setTokens([...systemTokens, ...initialResponseTokens])
     
-    // Calculate initial costs - only count new tokens generated
+    // Calculate initial request cost (entire context)
     const systemTokenCount = systemTokens.reduce((sum, token) => sum + token.length, 0)
     const responseTokenCount = initialResponseTokens.reduce((sum, token) => sum + token.length, 0)
-    const initialSessionCost = (systemTokenCount * inputTokenPrice) + (responseTokenCount * outputTokenPrice)
+    const initialRequestCost = (systemTokenCount * inputTokenPrice) + (responseTokenCount * outputTokenPrice)
     
-    setSessionTotalCost(initialSessionCost)
-    setTotalTokensProcessed(systemTokenCount + responseTokenCount)
+    // Set initial session cost and token counts
+    setSessionTotalCost(initialRequestCost)
+    setTotalTokensGenerated(systemTokenCount + responseTokenCount)
     setRequestCount(1)
   }, [])
 
@@ -89,14 +90,9 @@ function App() {
       id: uuidv4()
     }))
     
-    // Calculate cost for only the NEW tokens generated
-    const newTokensCost = newTokens.reduce((sum, token) => sum + token.length, 0) * 
-      (type === 'user' ? inputTokenPrice : outputTokenPrice)
+    // Track total tokens generated (for statistics)
     const newTokensCount = newTokens.reduce((sum, token) => sum + token.length, 0)
-    
-    // Add only new token costs to session total
-    setSessionTotalCost(prev => prev + newTokensCost)
-    setTotalTokensProcessed(prev => prev + newTokensCount)
+    setTotalTokensGenerated(prev => prev + newTokensCount)
     
     setTokens(prev => {
       // Keep system tokens separate and never evict them
@@ -126,15 +122,9 @@ function App() {
           id: uuidv4()
         }))
         
-        // Calculate cost for only the NEW response tokens
-        const responseTokensCost = responseTokens.reduce((sum, token) => sum + token.length, 0) * outputTokenPrice
+        // Track total response tokens generated
         const responseTokensCount = responseTokens.reduce((sum, token) => sum + token.length, 0)
-        
-        // Add only new response token costs to session total
-        setSessionTotalCost(prev => prev + responseTokensCost)
-        setTotalTokensProcessed(prev => prev + responseTokensCount)
-        // Only increment request count once per complete user+response cycle
-        setRequestCount(prev => prev + 1)
+        setTotalTokensGenerated(prev => prev + responseTokensCount)
         
         setTokens(prev => {
           // Keep system tokens separate and never evict them
@@ -152,7 +142,23 @@ function App() {
             startIndex++
           }
           
-          return [...systemTokens, ...updated.slice(startIndex)]
+          const finalTokens = [...systemTokens, ...updated.slice(startIndex)]
+          
+          // Calculate the cost for this complete request (entire final context)
+          const finalCounts = finalTokens.reduce((acc, token) => {
+            acc[token.type] += token.length
+            return acc
+          }, { system: 0, user: 0, response: 0 })
+          
+          const inputTokenCount = finalCounts.system + finalCounts.user
+          const outputTokenCount = finalCounts.response
+          const requestCost = (inputTokenCount * inputTokenPrice) + (outputTokenCount * outputTokenPrice)
+          
+          // Add this request's cost to session total
+          setSessionTotalCost(prev => prev + requestCost)
+          setRequestCount(prev => prev + 1)
+          
+          return finalTokens
         })
       }, 500)
     }
@@ -178,13 +184,13 @@ function App() {
     
     setTokens([...systemTokens, ...initialResponseTokens])
     
-    // Reset all costs and counters - only count new tokens generated
+    // Reset all costs and counters
     const systemTokenCount = systemTokens.reduce((sum, token) => sum + token.length, 0)
     const responseTokenCount = initialResponseTokens.reduce((sum, token) => sum + token.length, 0)
-    const initialSessionCost = (systemTokenCount * inputTokenPrice) + (responseTokenCount * outputTokenPrice)
+    const initialRequestCost = (systemTokenCount * inputTokenPrice) + (responseTokenCount * outputTokenPrice)
     
-    setSessionTotalCost(initialSessionCost)
-    setTotalTokensProcessed(systemTokenCount + responseTokenCount)
+    setSessionTotalCost(initialRequestCost)
+    setTotalTokensGenerated(systemTokenCount + responseTokenCount)
     setRequestCount(1)
   }
 
@@ -207,7 +213,7 @@ function App() {
             Session Total: ${sessionTotalCost.toFixed(3)} ({requestCount} requests)
           </div>
           <div className="cost-display tokens-processed">
-            Total Tokens Processed: {totalTokensProcessed.toLocaleString()}
+            Total Tokens Generated: {totalTokensGenerated.toLocaleString()}
           </div>
         </div>
         <div className="controls">

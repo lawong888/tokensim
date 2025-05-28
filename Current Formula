@@ -1,0 +1,3 @@
+const inputTokenCount = tokenCounts.system + tokenCounts.user
+const outputTokenCount = tokenCounts.response
+return (inputTokenCount * inputTokenPrice) + (outputTokenCount * outputTokenPrice)
