@@ -46,10 +46,11 @@
 }
 
 .content-area {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(16px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   margin-right: 10px;
+  align-items: flex-start;
 }
 
 .token-brick {
@@ -62,6 +63,7 @@
   color: black;
   font-size: 0.6rem;
   font-weight: bold;
+  flex-shrink: 0;
 }
 
 .token-brick.system {
@@ -132,10 +134,6 @@ button:disabled {
 }
 
 @media (max-width: 768px) {
-  .content-area {
-    grid-template-columns: repeat(auto-fill, minmax(12px, 1fr));
-  }
-  
   .token-brick {
     height: 15px;
   }
