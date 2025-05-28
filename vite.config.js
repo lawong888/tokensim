@@ -9,9 +9,9 @@ export default defineConfig({
     jsx: 'react'
   },
   server: {
-    host: 'localhost',
+    host: '127.0.0.1',
     strictPort: true,
-    port: 5173,
+    port: 3000,
     // Handle SPA fallback for client-side routing
     historyApiFallback: true,
     base: './'
