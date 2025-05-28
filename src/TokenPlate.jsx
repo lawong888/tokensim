@@ -25,37 +25,39 @@ export default function TokenPlate({ tokens, contextSize }) {
     <div className="token-plate" style={{ maxWidth: "100%" }}>
       <h3 className="section-title">CONTEXT WINDOW</h3>
       
-      <div className="system-section">
-        <h4 className="subsection-title">System Tokens</h4>
-        <div className="content-area">
-          {systemTransitions((style, token) => (
-            <animated.div
-              className={`token-brick ${token.type}`}
-              style={{
-                ...style,
-                width: `${token.length * 8}px`
-              }}
-            >
-              {token.length}
-            </animated.div>
-          ))}
+      <div className="token-plate-content">
+        <div className="system-section">
+          <h4 className="subsection-title">System Tokens</h4>
+          <div className="content-area">
+            {systemTransitions((style, token) => (
+              <animated.div
+                className={`token-brick ${token.type}`}
+                style={{
+                  ...style,
+                  width: `${token.length * 8}px`
+                }}
+              >
+                {token.length}
+              </animated.div>
+            ))}
+          </div>
         </div>
-      </div>
 
-      <div className="user-response-section">
-        <h4 className="subsection-title">User Prompts and Responses</h4>
-        <div className="content-area">
-          {userResponseTransitions((style, token) => (
-            <animated.div
-              className={`token-brick ${token.type}`}
-              style={{
-                ...style,
-                width: `${token.length * 8}px`
-              }}
-            >
-              {token.length}
-            </animated.div>
-          ))}
+        <div className="user-response-section">
+          <h4 className="subsection-title">User Prompts and Responses</h4>
+          <div className="content-area">
+            {userResponseTransitions((style, token) => (
+              <animated.div
+                className={`token-brick ${token.type}`}
+                style={{
+                  ...style,
+                  width: `${token.length * 8}px`
+                }}
+              >
+                {token.length}
+              </animated.div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
