@@ -14,7 +14,7 @@ function App() {
 
   // Generate initial system tokens
   useEffect(() => {
-    const systemTokens = Array.from({ length: Math.floor(Math.random() * 8 + 12) }, () => ({
+    const systemTokens = Array.from({ length: Math.floor(Math.random() * 15 + 20) }, () => ({
       type: 'system',
       length: Math.floor(Math.random() * 4 + 2),
       id: uuidv4()
@@ -92,7 +92,7 @@ function App() {
 
   const resetSimulation = () => {
     // Generate new random system tokens on reset
-    const systemTokens = Array.from({ length: Math.floor(Math.random() * 8 + 12) }, () => ({
+    const systemTokens = Array.from({ length: Math.floor(Math.random() * 15 + 20) }, () => ({
       type: 'system',
       length: Math.floor(Math.random() * 4 + 2),
       id: uuidv4()
