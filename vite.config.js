@@ -10,8 +10,8 @@ export default defineConfig({
   },
   server: {
     host: '127.0.0.1',
-    strictPort: true,
-    port: 3000,
+    strictPort: false,
+    port: 5174,
     // Handle SPA fallback for client-side routing
     historyApiFallback: true,
     base: './'
