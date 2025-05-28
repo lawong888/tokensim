@@ -12,6 +12,7 @@ function App() {
   const [tokens, setTokens] = useState([])
   const [tokenCounts, setTokenCounts] = useState({ system: 0, user: 0, response: 0 })
   const [tokenPrice, setTokenPrice] = useState(0.001)
+  const [cumulativeCost, setCumulativeCost] = useState(0)
 
   // Generate initial system tokens
   useEffect(() => {
@@ -21,6 +22,10 @@ function App() {
       id: uuidv4()
     }))
     setTokens(systemTokens)
+    
+    // Add initial system token cost to cumulative cost
+    const initialSystemCost = systemTokens.reduce((sum, token) => sum + token.length, 0) * tokenPrice
+    setCumulativeCost(initialSystemCost)
   }, [])
 
   // Update token counts
@@ -40,6 +45,10 @@ function App() {
       length: Math.floor(Math.random() * 6 + 2),
       id: uuidv4()
     }))
+    
+    // Add cost for new tokens to cumulative total
+    const newTokensCost = newTokens.reduce((sum, token) => sum + token.length, 0) * tokenPrice
+    setCumulativeCost(prev => prev + newTokensCost)
     
     setTokens(prev => {
       // Keep system tokens separate and never evict them
@@ -68,6 +77,10 @@ function App() {
           length: Math.floor(Math.random() * 6 + 2),
           id: uuidv4()
         }))
+        
+        // Add cost for response tokens to cumulative total
+        const responseTokensCost = responseTokens.reduce((sum, token) => sum + token.length, 0) * tokenPrice
+        setCumulativeCost(prev => prev + responseTokensCost)
         
         setTokens(prev => {
           // Keep system tokens separate and never evict them
@@ -99,10 +112,13 @@ function App() {
       id: uuidv4()
     }))
     setTokens(systemTokens)
+    
+    // Reset cumulative cost and add new system token cost
+    const newSystemCost = systemTokens.reduce((sum, token) => sum + token.length, 0) * tokenPrice
+    setCumulativeCost(newSystemCost)
   }
 
   const used = tokenCounts.system + tokenCounts.user + tokenCounts.response
-  const totalCost = used * tokenPrice
 
   return (
     <div className="app">
@@ -110,7 +126,7 @@ function App() {
       <div className="simulator-container">
         <TokenPlate tokens={tokens} contextSize={contextSize} />
         <div className="token-counts">
-          System: {tokenCounts.system} | User: {tokenCounts.user} | Response: {tokenCounts.response} | Free: {contextSize - used} | Cost: ${totalCost.toFixed(3)}
+          System: {tokenCounts.system} | User: {tokenCounts.user} | Response: {tokenCounts.response} | Free: {contextSize - used} | Cost: ${cumulativeCost.toFixed(3)}
         </div>
         <div className="controls">
           <label>
