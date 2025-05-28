@@ -41,9 +41,6 @@ export default function TokenMeter({ counts, total }) {
           }}
         />
       </div>
-      <div className="token-counts">
-        System: {counts.system} | User: {counts.user} | Response: {counts.response} | Free: {total - used}
-      </div>
     </div>
   )
 }

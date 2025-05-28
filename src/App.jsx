@@ -82,11 +82,16 @@ function App() {
     }
   }
 
+  const used = tokenCounts.system + tokenCounts.user + tokenCounts.response
+
   return (
     <div className="app">
       <h1>LLM Token Simulator</h1>
       <div className="simulator-container">
         <TokenPlate tokens={tokens} contextSize={contextSize} />
+        <div className="token-counts">
+          System: {tokenCounts.system} | User: {tokenCounts.user} | Response: {tokenCounts.response} | Free: {contextSize - used}
+        </div>
         <div className="controls">
           <select 
             value={contextSize} 
