@@ -11,8 +11,8 @@ function App() {
   const [contextSize, setContextSize] = useState(4096)
   const [tokens, setTokens] = useState([])
   const [tokenCounts, setTokenCounts] = useState({ system: 0, user: 0, response: 0 })
-  const [inputTokenPrice, setInputTokenPrice] = useState(0.003)
-  const [outputTokenPrice, setOutputTokenPrice] = useState(0.009)
+  const [inputTokenPrice, setInputTokenPrice] = useState(0.000003)
+  const [outputTokenPrice, setOutputTokenPrice] = useState(0.000009)
   const [sessionTotalCost, setSessionTotalCost] = useState(0)
   const [totalTokensGenerated, setTotalTokensGenerated] = useState(0)
   const [requestCount, setRequestCount] = useState(0)
@@ -207,10 +207,10 @@ function App() {
         </div>
         <div className="billing-section">
           <div className="cost-display current-request">
-            Current Request Cost: ${currentRequestCost.toFixed(3)}
+            Current Request Cost: ${currentRequestCost.toFixed(6)}
           </div>
           <div className="cost-display session-total">
-            Session Total: ${sessionTotalCost.toFixed(3)} ({requestCount} requests)
+            Session Total: ${sessionTotalCost.toFixed(6)} ({requestCount} requests)
           </div>
           <div className="cost-display tokens-processed">
             Total Tokens Generated: {totalTokensGenerated.toLocaleString()}
@@ -232,11 +232,11 @@ function App() {
             Input Token Price: 
             <input
               type="number"
-              step="0.001"
+              step="0.000001"
               min="0"
               value={inputTokenPrice}
               onChange={(e) => setInputTokenPrice(Number(e.target.value))}
-              placeholder="$0.003"
+              placeholder="$0.000003"
               className="price-input"
             />
           </label>
@@ -244,11 +244,11 @@ function App() {
             Output Token Price: 
             <input
               type="number"
-              step="0.001"
+              step="0.000001"
               min="0"
               value={outputTokenPrice}
               onChange={(e) => setOutputTokenPrice(Number(e.target.value))}
-              placeholder="$0.009"
+              placeholder="$0.000009"
               className="price-input"
             />
           </label>
