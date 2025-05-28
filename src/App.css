@@ -48,7 +48,7 @@
 .content-area {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 1px;
   margin-right: 10px;
   align-items: flex-start;
 }
