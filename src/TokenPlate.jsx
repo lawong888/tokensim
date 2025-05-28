@@ -23,7 +23,7 @@ export default function TokenPlate({ tokens, contextSize }) {
 
   return (
     <div className="token-plate" style={{ maxWidth: "100%" }}>
-      <h3 className="section-title">Context Window</h3>
+      <h3 className="section-title">CONTEXT WINDOW</h3>
       
       <div className="system-section">
         <h4 className="subsection-title">System Tokens</h4>
