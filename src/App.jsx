@@ -183,6 +183,20 @@ function App() {
           <button onClick={resetSimulation}>Reset</button>
         </div>
         <TokenMeter counts={tokenCounts} total={contextSize} />
+        <div className="legend">
+          <div className="legend-item">
+            <div className="legend-color system"></div>
+            <span>Blue = System Tokens</span>
+          </div>
+          <div className="legend-item">
+            <div className="legend-color user"></div>
+            <span>Green = User Query Tokens</span>
+          </div>
+          <div className="legend-item">
+            <div className="legend-color response"></div>
+            <span>Purple = LLM Response Tokens</span>
+          </div>
+        </div>
       </div>
     </div>
   )
