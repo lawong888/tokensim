@@ -16,28 +16,34 @@ export default function TokenMeter({ counts, total }) {
         style={{ 
           background: getBackground(),
           height: '25px',
-          margin: '10px 0'
+          margin: '10px 0',
+          display: 'flex',
+          borderRadius: '4px',
+          overflow: 'hidden'
         }}
       >
         <div
           className="meter-segment system"
           style={{
             width: `${(counts.system / total) * 100}%`,
-            height: '100%'
+            height: '100%',
+            transition: 'width 0.3s ease'
           }}
         />
         <div
           className="meter-segment user"
           style={{
             width: `${(counts.user / total) * 100}%`,
-            height: '100%'
+            height: '100%',
+            transition: 'width 0.3s ease'
           }}
         />
         <div
           className="meter-segment response"
           style={{
             width: `${(counts.response / total) * 100}%`,
-            height: '100%'
+            height: '100%',
+            transition: 'width 0.3s ease'
           }}
         />
       </div>
