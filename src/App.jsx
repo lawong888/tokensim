@@ -41,18 +41,22 @@ function App() {
     }))
     
     setTokens(prev => {
-      const updated = [...prev, ...newTokens]
-      // Calculate total length and evict oldest tokens if needed
-      let totalLength = updated.reduce((sum, t) => sum + t.length, 0)
-      let startIndex = 0
+      // Keep system tokens separate and never evict them
+      const systemTokens = prev.filter(token => token.type === 'system')
+      const nonSystemTokens = prev.filter(token => token.type !== 'system')
+      const updated = [...systemTokens, ...nonSystemTokens, ...newTokens]
       
-      // Keep removing oldest tokens until we're under context size
+      // Calculate total length and evict oldest non-system tokens if needed
+      let totalLength = updated.reduce((sum, t) => sum + t.length, 0)
+      let startIndex = systemTokens.length // Never remove system tokens
+      
+      // Keep removing oldest non-system tokens until we're under context size
       while (totalLength > contextSize && startIndex < updated.length) {
         totalLength -= updated[startIndex].length
         startIndex++
       }
       
-      return updated.slice(startIndex)
+      return [...systemTokens, ...updated.slice(startIndex)]
     })
 
     // If we just added user tokens, automatically generate response tokens after a short delay
@@ -65,21 +69,35 @@ function App() {
         }))
         
         setTokens(prev => {
-          const updated = [...prev, ...responseTokens]
-          // Calculate total length and evict oldest tokens if needed
-          let totalLength = updated.reduce((sum, t) => sum + t.length, 0)
-          let startIndex = 0
+          // Keep system tokens separate and never evict them
+          const systemTokens = prev.filter(token => token.type === 'system')
+          const nonSystemTokens = prev.filter(token => token.type !== 'system')
+          const updated = [...systemTokens, ...nonSystemTokens, ...responseTokens]
           
-          // Keep removing oldest tokens until we're under context size
+          // Calculate total length and evict oldest non-system tokens if needed
+          let totalLength = updated.reduce((sum, t) => sum + t.length, 0)
+          let startIndex = systemTokens.length // Never remove system tokens
+          
+          // Keep removing oldest non-system tokens until we're under context size
           while (totalLength > contextSize && startIndex < updated.length) {
             totalLength -= updated[startIndex].length
             startIndex++
           }
           
-          return updated.slice(startIndex)
+          return [...systemTokens, ...updated.slice(startIndex)]
         })
       }, 500)
     }
+  }
+
+  const resetSimulation = () => {
+    // Generate new random system tokens on reset
+    const systemTokens = Array.from({ length: Math.floor(Math.random() * 3 + 4) }, () => ({
+      type: 'system',
+      length: Math.floor(Math.random() * 4 + 2),
+      id: uuidv4()
+    }))
+    setTokens(systemTokens)
   }
 
   const used = tokenCounts.system + tokenCounts.user + tokenCounts.response
@@ -102,7 +120,7 @@ function App() {
             ))}
           </select>
           <button onClick={() => generateTokens('user')}>Ask LLM</button>
-          <button onClick={() => setTokens([])}>Reset</button>
+          <button onClick={resetSimulation}>Reset</button>
         </div>
         <TokenMeter counts={tokenCounts} total={contextSize} />
       </div>
