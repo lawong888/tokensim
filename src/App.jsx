@@ -17,18 +17,29 @@ function App() {
   const [currentMessageCost, setCurrentMessageCost] = useState(0)
   const [autoAsk, setAutoAsk] = useState(false)
 
-  // Generate initial system tokens
+  // Generate initial system tokens and response
   useEffect(() => {
     const systemTokens = Array.from({ length: Math.floor(Math.random() * 15 + 20) }, () => ({
       type: 'system',
       length: Math.floor(Math.random() * 4 + 2),
       id: uuidv4()
     }))
-    setTokens(systemTokens)
     
-    // Add initial system token cost to session cost (system tokens count as input)
+    const initialResponseTokens = Array.from({ length: Math.floor(Math.random() * 8 + 5) }, () => ({
+      type: 'response',
+      length: Math.floor(Math.random() * 6 + 2),
+      id: uuidv4()
+    }))
+    
+    setTokens([...systemTokens, ...initialResponseTokens])
+    
+    // Calculate initial costs (system tokens count as input, response as output)
     const initialSystemCost = systemTokens.reduce((sum, token) => sum + token.length, 0) * inputTokenPrice
-    setSessionCost(initialSystemCost)
+    const initialResponseCost = initialResponseTokens.reduce((sum, token) => sum + token.length, 0) * outputTokenPrice
+    const totalInitialCost = initialSystemCost + initialResponseCost
+    
+    setSessionCost(totalInitialCost)
+    setCurrentMessageCost(totalInitialCost)
   }, [])
 
   // Auto Ask LLM functionality
@@ -146,12 +157,23 @@ function App() {
       length: Math.floor(Math.random() * 4 + 2),
       id: uuidv4()
     }))
-    setTokens(systemTokens)
     
-    // Reset costs and add new system token cost
+    // Generate initial response tokens for the system
+    const initialResponseTokens = Array.from({ length: Math.floor(Math.random() * 8 + 5) }, () => ({
+      type: 'response',
+      length: Math.floor(Math.random() * 6 + 2),
+      id: uuidv4()
+    }))
+    
+    setTokens([...systemTokens, ...initialResponseTokens])
+    
+    // Reset costs and add new system and initial response token costs
     const newSystemCost = systemTokens.reduce((sum, token) => sum + token.length, 0) * inputTokenPrice
-    setSessionCost(newSystemCost)
-    setCurrentMessageCost(0)
+    const newResponseCost = initialResponseTokens.reduce((sum, token) => sum + token.length, 0) * outputTokenPrice
+    const totalResetCost = newSystemCost + newResponseCost
+    
+    setSessionCost(totalResetCost)
+    setCurrentMessageCost(totalResetCost)
   }
 
   const used = tokenCounts.system + tokenCounts.user + tokenCounts.response
