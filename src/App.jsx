@@ -11,8 +11,10 @@ function App() {
   const [contextSize, setContextSize] = useState(4096)
   const [tokens, setTokens] = useState([])
   const [tokenCounts, setTokenCounts] = useState({ system: 0, user: 0, response: 0 })
-  const [tokenPrice, setTokenPrice] = useState(0.001)
-  const [cumulativeCost, setCumulativeCost] = useState(0)
+  const [inputTokenPrice, setInputTokenPrice] = useState(0.001)
+  const [outputTokenPrice, setOutputTokenPrice] = useState(0.003)
+  const [sessionCost, setSessionCost] = useState(0)
+  const [currentMessageCost, setCurrentMessageCost] = useState(0)
   const [autoAsk, setAutoAsk] = useState(false)
 
   // Generate initial system tokens
@@ -24,9 +26,9 @@ function App() {
     }))
     setTokens(systemTokens)
     
-    // Add initial system token cost to cumulative cost
-    const initialSystemCost = systemTokens.reduce((sum, token) => sum + token.length, 0) * tokenPrice
-    setCumulativeCost(initialSystemCost)
+    // Add initial system token cost to session cost (system tokens count as input)
+    const initialSystemCost = systemTokens.reduce((sum, token) => sum + token.length, 0) * inputTokenPrice
+    setSessionCost(initialSystemCost)
   }, [])
 
   // Auto Ask LLM functionality
@@ -55,6 +57,11 @@ function App() {
     setTokenCounts(counts)
   }, [tokens])
 
+  // Update output token price when input price changes
+  useEffect(() => {
+    setOutputTokenPrice(inputTokenPrice * 3)
+  }, [inputTokenPrice])
+
   const generateTokens = (type) => {
     const newTokens = Array.from({ length: Math.floor(Math.random() * 5 + 1) }, () => ({
       type,
@@ -62,9 +69,17 @@ function App() {
       id: uuidv4()
     }))
     
-    // Add cost for new tokens to cumulative total
-    const newTokensCost = newTokens.reduce((sum, token) => sum + token.length, 0) * tokenPrice
-    setCumulativeCost(prev => prev + newTokensCost)
+    // Calculate cost for new tokens
+    const newTokensCost = newTokens.reduce((sum, token) => sum + token.length, 0) * 
+      (type === 'user' ? inputTokenPrice : outputTokenPrice)
+    
+    // Add to session cost
+    setSessionCost(prev => prev + newTokensCost)
+    
+    // Start tracking current message cost
+    if (type === 'user') {
+      setCurrentMessageCost(newTokensCost)
+    }
     
     setTokens(prev => {
       // Keep system tokens separate and never evict them
@@ -94,9 +109,10 @@ function App() {
           id: uuidv4()
         }))
         
-        // Add cost for response tokens to cumulative total
-        const responseTokensCost = responseTokens.reduce((sum, token) => sum + token.length, 0) * tokenPrice
-        setCumulativeCost(prev => prev + responseTokensCost)
+        // Add cost for response tokens to session and current message cost
+        const responseTokensCost = responseTokens.reduce((sum, token) => sum + token.length, 0) * outputTokenPrice
+        setSessionCost(prev => prev + responseTokensCost)
+        setCurrentMessageCost(prev => prev + responseTokensCost)
         
         setTokens(prev => {
           // Keep system tokens separate and never evict them
@@ -132,9 +148,10 @@ function App() {
     }))
     setTokens(systemTokens)
     
-    // Reset cumulative cost and add new system token cost
-    const newSystemCost = systemTokens.reduce((sum, token) => sum + token.length, 0) * tokenPrice
-    setCumulativeCost(newSystemCost)
+    // Reset costs and add new system token cost
+    const newSystemCost = systemTokens.reduce((sum, token) => sum + token.length, 0) * inputTokenPrice
+    setSessionCost(newSystemCost)
+    setCurrentMessageCost(0)
   }
 
   const used = tokenCounts.system + tokenCounts.user + tokenCounts.response
@@ -145,7 +162,10 @@ function App() {
       <div className="simulator-container">
         <TokenPlate tokens={tokens} contextSize={contextSize} />
         <div className="token-counts">
-          System: {tokenCounts.system} | User: {tokenCounts.user} | Response: {tokenCounts.response} | Free: {contextSize - used} | Cost: ${cumulativeCost.toFixed(3)}
+          System: {tokenCounts.system} | User: {tokenCounts.user} | Response: {tokenCounts.response} | Free: {contextSize - used}
+        </div>
+        <div className="cost-display">
+          Current Message: ${currentMessageCost.toFixed(3)} | Session Total: ${sessionCost.toFixed(3)}
         </div>
         <div className="controls">
           <label>
@@ -160,14 +180,26 @@ function App() {
             </select>
           </label>
           <label>
-            Price per Token: 
+            Input Token Price: 
             <input
               type="number"
               step="0.001"
               min="0"
-              value={tokenPrice}
-              onChange={(e) => setTokenPrice(Number(e.target.value))}
+              value={inputTokenPrice}
+              onChange={(e) => setInputTokenPrice(Number(e.target.value))}
               placeholder="$0.001"
+              className="price-input"
+            />
+          </label>
+          <label>
+            Output Token Price: 
+            <input
+              type="number"
+              step="0.001"
+              min="0"
+              value={outputTokenPrice}
+              onChange={(e) => setOutputTokenPrice(Number(e.target.value))}
+              placeholder="$0.003"
               className="price-input"
             />
           </label>
