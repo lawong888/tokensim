@@ -133,6 +133,7 @@ function App() {
         // Add only new response token costs to session total
         setSessionTotalCost(prev => prev + responseTokensCost)
         setTotalTokensProcessed(prev => prev + responseTokensCount)
+        // Only increment request count once per complete user+response cycle
         setRequestCount(prev => prev + 1)
         
         setTokens(prev => {
