@@ -21,14 +21,6 @@
   overflow: hidden;
 }
 
-.system-block {
-  position: sticky;
-  top: 0;
-  background: rgba(42, 91, 215, 0.1);
-  padding: 5px;
-  margin-bottom: 10px;
-}
-
 .content-area {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(16px, 1fr));
@@ -48,7 +40,7 @@
 }
 
 .token-brick.system {
-  background: #2a5bd7;
+  background: #1a4aa0;
 }
 
 .token-brick.user {
@@ -60,7 +52,7 @@
 }
 
 .meter-segment.system {
-  background: #2a5bd7;
+  background: #1a4aa0;
 }
 
 .meter-segment.user {
