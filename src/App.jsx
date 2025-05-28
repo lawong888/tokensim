@@ -149,6 +149,17 @@ function App() {
         </div>
         <div className="controls">
           <label>
+            Context Window Size: 
+            <select 
+              value={contextSize} 
+              onChange={(e) => setContextSize(Number(e.target.value))}
+            >
+              {CONTEXT_SIZES.map(size => (
+                <option key={size} value={size}>{size.toLocaleString()} tokens</option>
+              ))}
+            </select>
+          </label>
+          <label>
             Price per Token: 
             <input
               type="number"
@@ -160,14 +171,6 @@ function App() {
               className="price-input"
             />
           </label>
-          <select 
-            value={contextSize} 
-            onChange={(e) => setContextSize(Number(e.target.value))}
-          >
-            {CONTEXT_SIZES.map(size => (
-              <option key={size} value={size}>{size.toLocaleString()} tokens</option>
-            ))}
-          </select>
           <button onClick={() => generateTokens('user')} disabled={autoAsk}>Ask LLM</button>
           <label className="auto-toggle">
             <input
