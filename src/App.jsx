@@ -54,6 +54,32 @@ function App() {
       
       return updated.slice(startIndex)
     })
+
+    // If we just added user tokens, automatically generate response tokens after a short delay
+    if (type === 'user') {
+      setTimeout(() => {
+        const responseTokens = Array.from({ length: Math.floor(Math.random() * 8 + 3) }, () => ({
+          type: 'response',
+          length: Math.floor(Math.random() * 6 + 2),
+          id: uuidv4()
+        }))
+        
+        setTokens(prev => {
+          const updated = [...prev, ...responseTokens]
+          // Calculate total length and evict oldest tokens if needed
+          let totalLength = updated.reduce((sum, t) => sum + t.length, 0)
+          let startIndex = 0
+          
+          // Keep removing oldest tokens until we're under context size
+          while (totalLength > contextSize && startIndex < updated.length) {
+            totalLength -= updated[startIndex].length
+            startIndex++
+          }
+          
+          return updated.slice(startIndex)
+        })
+      }, 500)
+    }
   }
 
   return (
@@ -71,7 +97,6 @@ function App() {
             ))}
           </select>
           <button onClick={() => generateTokens('user')}>Ask LLM</button>
-          <button onClick={() => generateTokens('response')}>Add Response</button>
           <button onClick={() => setTokens([])}>Reset</button>
         </div>
         <TokenMeter counts={tokenCounts} total={contextSize} />
