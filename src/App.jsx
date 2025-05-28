@@ -11,7 +11,7 @@ function App() {
   const [contextSize, setContextSize] = useState(4096)
   const [tokens, setTokens] = useState([])
   const [tokenCounts, setTokenCounts] = useState({ system: 0, user: 0, response: 0 })
-  const [tokenPrice, setTokenPrice] = useState(0.01)
+  const [tokenPrice, setTokenPrice] = useState(0.001)
 
   // Generate initial system tokens
   useEffect(() => {
@@ -110,18 +110,21 @@ function App() {
       <div className="simulator-container">
         <TokenPlate tokens={tokens} contextSize={contextSize} />
         <div className="token-counts">
-          System: {tokenCounts.system} | User: {tokenCounts.user} | Response: {tokenCounts.response} | Free: {contextSize - used} | Cost: ${totalCost.toFixed(2)}
+          System: {tokenCounts.system} | User: {tokenCounts.user} | Response: {tokenCounts.response} | Free: {contextSize - used} | Cost: ${totalCost.toFixed(3)}
         </div>
         <div className="controls">
-          <input
-            type="number"
-            step="0.001"
-            min="0"
-            value={tokenPrice}
-            onChange={(e) => setTokenPrice(Number(e.target.value))}
-            placeholder="Token price"
-            className="price-input"
-          />
+          <label>
+            Price per Token: 
+            <input
+              type="number"
+              step="0.001"
+              min="0"
+              value={tokenPrice}
+              onChange={(e) => setTokenPrice(Number(e.target.value))}
+              placeholder="$0.001"
+              className="price-input"
+            />
+          </label>
           <select 
             value={contextSize} 
             onChange={(e) => setContextSize(Number(e.target.value))}
