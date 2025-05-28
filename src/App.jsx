@@ -13,8 +13,9 @@ function App() {
   const [tokenCounts, setTokenCounts] = useState({ system: 0, user: 0, response: 0 })
   const [inputTokenPrice, setInputTokenPrice] = useState(0.001)
   const [outputTokenPrice, setOutputTokenPrice] = useState(0.003)
-  const [sessionCost, setSessionCost] = useState(0)
-  const [currentMessageCost, setCurrentMessageCost] = useState(0)
+  const [sessionTotalCost, setSessionTotalCost] = useState(0)
+  const [totalTokensProcessed, setTotalTokensProcessed] = useState(0)
+  const [requestCount, setRequestCount] = useState(0)
   const [autoAsk, setAutoAsk] = useState(false)
 
   // Generate initial system tokens and response
@@ -33,13 +34,14 @@ function App() {
     
     setTokens([...systemTokens, ...initialResponseTokens])
     
-    // Calculate initial costs (system tokens count as input, response as output)
-    const initialSystemCost = systemTokens.reduce((sum, token) => sum + token.length, 0) * inputTokenPrice
-    const initialResponseCost = initialResponseTokens.reduce((sum, token) => sum + token.length, 0) * outputTokenPrice
-    const totalInitialCost = initialSystemCost + initialResponseCost
+    // Calculate initial request cost and add to session
+    const systemTokenCount = systemTokens.reduce((sum, token) => sum + token.length, 0)
+    const responseTokenCount = initialResponseTokens.reduce((sum, token) => sum + token.length, 0)
+    const initialRequestCost = (systemTokenCount * inputTokenPrice) + (responseTokenCount * outputTokenPrice)
     
-    setSessionCost(totalInitialCost)
-    setCurrentMessageCost(totalInitialCost)
+    setSessionTotalCost(initialRequestCost)
+    setTotalTokensProcessed(systemTokenCount + responseTokenCount)
+    setRequestCount(1)
   }, [])
 
   // Auto Ask LLM functionality
@@ -73,24 +75,19 @@ function App() {
     setOutputTokenPrice(inputTokenPrice * 3)
   }, [inputTokenPrice])
 
+  // Calculate current request cost (entire context window)
+  const calculateCurrentRequestCost = () => {
+    const inputTokenCount = tokenCounts.system + tokenCounts.user
+    const outputTokenCount = tokenCounts.response
+    return (inputTokenCount * inputTokenPrice) + (outputTokenCount * outputTokenPrice)
+  }
+
   const generateTokens = (type) => {
     const newTokens = Array.from({ length: Math.floor(Math.random() * 5 + 1) }, () => ({
       type,
       length: Math.floor(Math.random() * 6 + 2),
       id: uuidv4()
     }))
-    
-    // Calculate cost for new tokens
-    const newTokensCost = newTokens.reduce((sum, token) => sum + token.length, 0) * 
-      (type === 'user' ? inputTokenPrice : outputTokenPrice)
-    
-    // Add to session cost
-    setSessionCost(prev => prev + newTokensCost)
-    
-    // Start tracking current message cost
-    if (type === 'user') {
-      setCurrentMessageCost(newTokensCost)
-    }
     
     setTokens(prev => {
       // Keep system tokens separate and never evict them
@@ -120,11 +117,6 @@ function App() {
           id: uuidv4()
         }))
         
-        // Add cost for response tokens to session and current message cost
-        const responseTokensCost = responseTokens.reduce((sum, token) => sum + token.length, 0) * outputTokenPrice
-        setSessionCost(prev => prev + responseTokensCost)
-        setCurrentMessageCost(prev => prev + responseTokensCost)
-        
         setTokens(prev => {
           // Keep system tokens separate and never evict them
           const systemTokens = prev.filter(token => token.type === 'system')
@@ -141,7 +133,25 @@ function App() {
             startIndex++
           }
           
-          return [...systemTokens, ...updated.slice(startIndex)]
+          const finalTokens = [...systemTokens, ...updated.slice(startIndex)]
+          
+          // Calculate the cost for this complete request (entire context)
+          const counts = finalTokens.reduce((acc, token) => {
+            acc[token.type] += token.length
+            return acc
+          }, { system: 0, user: 0, response: 0 })
+          
+          const inputTokenCount = counts.system + counts.user
+          const outputTokenCount = counts.response
+          const requestCost = (inputTokenCount * inputTokenPrice) + (outputTokenCount * outputTokenPrice)
+          const totalTokensInRequest = inputTokenCount + outputTokenCount
+          
+          // Add this request's cost to session total
+          setSessionTotalCost(prev => prev + requestCost)
+          setTotalTokensProcessed(prev => prev + totalTokensInRequest)
+          setRequestCount(prev => prev + 1)
+          
+          return finalTokens
         })
       }, 500)
     }
@@ -167,16 +177,18 @@ function App() {
     
     setTokens([...systemTokens, ...initialResponseTokens])
     
-    // Reset costs and add new system and initial response token costs
-    const newSystemCost = systemTokens.reduce((sum, token) => sum + token.length, 0) * inputTokenPrice
-    const newResponseCost = initialResponseTokens.reduce((sum, token) => sum + token.length, 0) * outputTokenPrice
-    const totalResetCost = newSystemCost + newResponseCost
+    // Reset all costs and counters
+    const systemTokenCount = systemTokens.reduce((sum, token) => sum + token.length, 0)
+    const responseTokenCount = initialResponseTokens.reduce((sum, token) => sum + token.length, 0)
+    const initialRequestCost = (systemTokenCount * inputTokenPrice) + (responseTokenCount * outputTokenPrice)
     
-    setSessionCost(totalResetCost)
-    setCurrentMessageCost(totalResetCost)
+    setSessionTotalCost(initialRequestCost)
+    setTotalTokensProcessed(systemTokenCount + responseTokenCount)
+    setRequestCount(1)
   }
 
   const used = tokenCounts.system + tokenCounts.user + tokenCounts.response
+  const currentRequestCost = calculateCurrentRequestCost()
 
   return (
     <div className="app">
@@ -186,8 +198,16 @@ function App() {
         <div className="token-counts">
           System: {tokenCounts.system} | User: {tokenCounts.user} | Response: {tokenCounts.response} | Free: {contextSize - used}
         </div>
-        <div className="cost-display">
-          Current Message: ${currentMessageCost.toFixed(3)} | Session Total: ${sessionCost.toFixed(3)}
+        <div className="billing-section">
+          <div className="cost-display current-request">
+            Current Request Cost: ${currentRequestCost.toFixed(3)}
+          </div>
+          <div className="cost-display session-total">
+            Session Total: ${sessionTotalCost.toFixed(3)} ({requestCount} requests)
+          </div>
+          <div className="cost-display tokens-processed">
+            Total Tokens Processed: {totalTokensProcessed.toLocaleString()}
+          </div>
         </div>
         <div className="controls">
           <label>
