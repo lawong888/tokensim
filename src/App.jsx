@@ -13,6 +13,7 @@ function App() {
   const [tokenCounts, setTokenCounts] = useState({ system: 0, user: 0, response: 0 })
   const [tokenPrice, setTokenPrice] = useState(0.001)
   const [cumulativeCost, setCumulativeCost] = useState(0)
+  const [autoAsk, setAutoAsk] = useState(false)
 
   // Generate initial system tokens
   useEffect(() => {
@@ -27,6 +28,21 @@ function App() {
     const initialSystemCost = systemTokens.reduce((sum, token) => sum + token.length, 0) * tokenPrice
     setCumulativeCost(initialSystemCost)
   }, [])
+
+  // Auto Ask LLM functionality
+  useEffect(() => {
+    let interval
+    if (autoAsk) {
+      interval = setInterval(() => {
+        generateTokens('user')
+      }, 500)
+    }
+    return () => {
+      if (interval) {
+        clearInterval(interval)
+      }
+    }
+  }, [autoAsk])
 
   // Update token counts
   useEffect(() => {
@@ -105,6 +121,9 @@ function App() {
   }
 
   const resetSimulation = () => {
+    // Turn off auto ask when resetting
+    setAutoAsk(false)
+    
     // Generate new random system tokens on reset
     const systemTokens = Array.from({ length: Math.floor(Math.random() * 15 + 20) }, () => ({
       type: 'system',
@@ -149,7 +168,15 @@ function App() {
               <option key={size} value={size}>{size.toLocaleString()} tokens</option>
             ))}
           </select>
-          <button onClick={() => generateTokens('user')}>Ask LLM</button>
+          <button onClick={() => generateTokens('user')} disabled={autoAsk}>Ask LLM</button>
+          <label className="auto-toggle">
+            <input
+              type="checkbox"
+              checked={autoAsk}
+              onChange={(e) => setAutoAsk(e.target.checked)}
+            />
+            Auto Ask LLM
+          </label>
           <button onClick={resetSimulation}>Reset</button>
         </div>
         <TokenMeter counts={tokenCounts} total={contextSize} />

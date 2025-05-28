@@ -105,12 +105,30 @@
   font-size: 14px;
 }
 
+.auto-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.auto-toggle input[type="checkbox"] {
+  cursor: pointer;
+}
+
 button, select {
   padding: 8px 16px;
   border-radius: 4px;
   border: 1px solid #ccc;
   background: white;
   cursor: pointer;
+}
+
+button:disabled {
+  background: #f0f0f0;
+  color: #999;
+  cursor: not-allowed;
 }
 
 @media (max-width: 768px) {
