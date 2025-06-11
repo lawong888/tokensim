@@ -269,7 +269,7 @@ button:disabled {
 }
 
 .meter-bar.slide-out {
-  transform: translateX(-100%); /* Slide to the left */
+  transform: translateY(30px); /* Slide downwards */
   opacity: 0; /* Fade out */
 }
 
