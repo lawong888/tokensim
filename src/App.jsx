@@ -19,6 +19,132 @@ function App() {
   const [autoAsk, setAutoAsk] = useState(false)
   const [isSendingRequest, setIsSendingRequest] = useState(false)
 
+  // Calculate current request cost (entire context window)
+  const calculateCurrentRequestCost = () => {
+    const inputTokenCount = tokenCounts.system + tokenCounts.user
+    const outputTokenCount = tokenCounts.response
+    return (inputTokenCount * inputTokenPrice) + (outputTokenCount * outputTokenPrice)
+  }
+
+  const generateTokens = useCallback((type) => {
+    if (type === 'user') {
+      setIsSendingRequest(true);
+      setTimeout(() => setIsSendingRequest(false), 500); // Duration of the flash/animation trigger
+    }
+
+    const newTokens = Array.from({ length: Math.floor(Math.random() * 5 + 1) }, () => ({
+      type,
+      length: Math.floor(Math.random() * 6 + 2),
+      id: uuidv4()
+    }))
+    
+    // Track total tokens generated (for statistics)
+    const newTokensCount = newTokens.reduce((sum, token) => sum + token.length, 0)
+    setTotalTokensGenerated(prev => prev + newTokensCount)
+    
+    setTokens(prev => {
+      // Keep system tokens separate and never evict them
+      const systemTokens = prev.filter(token => token.type === 'system')
+      const nonSystemTokens = prev.filter(token => token.type !== 'system')
+      const updated = [...systemTokens, ...nonSystemTokens, ...newTokens]
+      
+      // Calculate total length and evict oldest non-system tokens if needed
+      let totalLength = updated.reduce((sum, t) => sum + t.length, 0)
+      let startIndex = systemTokens.length // Never remove system tokens
+      
+      // Keep removing oldest non-system tokens until we're under context size
+      while (totalLength > contextSize && startIndex < updated.length) {
+        totalLength -= updated[startIndex].length
+        startIndex++
+      }
+      
+      return [...systemTokens, ...updated.slice(startIndex)]
+    })
+
+    // If we just added user tokens, automatically generate response tokens after a short delay
+    if (type === 'user') {
+      setTimeout(() => {
+        const responseTokens = Array.from({ length: Math.floor(Math.random() * 8 + 3) }, () => ({
+          type: 'response',
+          length: Math.floor(Math.random() * 6 + 2),
+          id: uuidv4()
+        }))
+        
+        // Track total response tokens generated
+        const responseTokensCount = responseTokens.reduce((sum, token) => sum + token.length, 0)
+        setTotalTokensGenerated(prev => prev + responseTokensCount)
+        
+        setTokens(prev => {
+          // Keep system tokens separate and never evict them
+          const systemTokens = prev.filter(token => token.type === 'system')
+          const nonSystemTokens = prev.filter(token => token.type !== 'system')
+          const updated = [...systemTokens, ...nonSystemTokens, ...responseTokens]
+          
+          // Calculate total length and evict oldest non-system tokens if needed
+          let totalLength = updated.reduce((sum, t) => sum + t.length, 0)
+          let startIndex = systemTokens.length // Never remove system tokens
+          
+          // Keep removing oldest non-system tokens until we're under context size
+          while (totalLength > contextSize && startIndex < updated.length) {
+            totalLength -= updated[startIndex].length
+            startIndex++
+          }
+          
+          const finalTokens = [...systemTokens, ...updated.slice(startIndex)]
+          
+          // Calculate the cost for this complete request (entire final context)
+          const finalCounts = finalTokens.reduce((acc, token) => {
+            if (typeof acc[token.type] === 'undefined') {
+              acc[token.type] = 0; // Initialize if type is unexpectedly not in accumulator
+            }
+            acc[token.type] += token.length;
+            return acc;
+          }, { system: 0, user: 0, response: 0 });
+          
+          const inputTokenCount = finalCounts.system + finalCounts.user
+          const outputTokenCount = finalCounts.response
+          const requestCost = (inputTokenCount * inputTokenPrice) + (outputTokenCount * outputTokenPrice)
+          
+          // Add this request's cost to session total
+          setSessionTotalCost(prev => prev + requestCost)
+          setRequestCount(prev => prev + 1)
+          
+          return finalTokens
+        })
+      }, 500)
+    }
+  }, [contextSize, inputTokenPrice, outputTokenPrice, setTokens, setTotalTokensGenerated, setSessionTotalCost, setRequestCount, setIsSendingRequest])
+
+  const resetSimulation = () => {
+    // Turn off auto ask when resetting
+    setAutoAsk(false)
+    
+    // Generate new random system tokens on reset
+    const systemTokens = Array.from({ length: Math.floor(Math.random() * 15 + 20) }, () => ({
+      type: 'system',
+      length: Math.floor(Math.random() * 4 + 2),
+      id: uuidv4()
+    }))
+    
+    // Generate initial response tokens for the system
+    const initialResponseTokens = Array.from({ length: Math.floor(Math.random() * 8 + 5) }, () => ({
+      type: 'response',
+      length: Math.floor(Math.random() * 6 + 2),
+      id: uuidv4()
+    }))
+    
+    setTokens([...systemTokens, ...initialResponseTokens])
+    
+    // Reset all costs and counters
+    const systemTokenCount = systemTokens.reduce((sum, token) => sum + token.length, 0)
+    const responseTokenCount = initialResponseTokens.reduce((sum, token) => sum + token.length, 0)
+    const initialRequestCost = (systemTokenCount * inputTokenPrice) + (responseTokenCount * outputTokenPrice)
+    
+    setSessionTotalCost(initialRequestCost)
+    setTotalTokensGenerated(systemTokenCount + responseTokenCount)
+    setRequestCount(1)
+  }
+
   // Generate initial system tokens and response
   useEffect(() => {
     const systemTokens = Array.from({ length: Math.floor(Math.random() * 15 + 20) }, () => ({
