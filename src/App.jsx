@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTransition, animated } from '@react-spring/web'
 import { v4 as uuidv4 } from 'uuid'
 import TokenPlate from './TokenPlate'
@@ -59,7 +59,7 @@ function App() {
         clearInterval(interval)
       }
     }
-  }, [autoAsk])
+  }, [autoAsk, generateTokens])
 
   // Update token counts
   useEffect(() => {
@@ -84,7 +84,7 @@ function App() {
     return (inputTokenCount * inputTokenPrice) + (outputTokenCount * outputTokenPrice)
   }
 
-  const generateTokens = (type) => {
+  const generateTokens = useCallback((type) => {
     if (type === 'user') {
       setIsSendingRequest(true);
       setTimeout(() => setIsSendingRequest(false), 500); // Duration of the flash/animation trigger
@@ -168,7 +168,7 @@ function App() {
         })
       }, 500)
     }
-  }
+  }, [contextSize, inputTokenPrice, outputTokenPrice, setTokens, setTotalTokensGenerated, setSessionTotalCost, setRequestCount, setIsSendingRequest])
 
   const resetSimulation = () => {
     // Turn off auto ask when resetting
