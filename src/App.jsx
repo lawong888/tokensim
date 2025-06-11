@@ -17,6 +17,7 @@ function App() {
   const [totalTokensGenerated, setTotalTokensGenerated] = useState(0)
   const [requestCount, setRequestCount] = useState(0)
   const [autoAsk, setAutoAsk] = useState(false)
+  const [isSendingRequest, setIsSendingRequest] = useState(false)
 
   // Generate initial system tokens and response
   useEffect(() => {
@@ -84,6 +85,11 @@ function App() {
   }
 
   const generateTokens = (type) => {
+    if (type === 'user') {
+      setIsSendingRequest(true);
+      setTimeout(() => setIsSendingRequest(false), 500); // Duration of the flash/animation trigger
+    }
+
     const newTokens = Array.from({ length: Math.floor(Math.random() * 5 + 1) }, () => ({
       type,
       length: Math.floor(Math.random() * 6 + 2),
@@ -201,7 +207,7 @@ function App() {
     <div className="app">
       <h1>LLM Token Simulator</h1>
       <div className="simulator-container">
-        <TokenPlate tokens={tokens} contextSize={contextSize} />
+        <TokenPlate tokens={tokens} contextSize={contextSize} isSendingRequest={isSendingRequest} />
         <div className="token-counts">
           System: {tokenCounts.system} | User: {tokenCounts.user} | Response: {tokenCounts.response} | Free: {contextSize - used}
         </div>
@@ -263,7 +269,7 @@ function App() {
           </label>
           <button onClick={resetSimulation}>Reset</button>
         </div>
-        <TokenMeter counts={tokenCounts} total={contextSize} />
+        <TokenMeter counts={tokenCounts} total={contextSize} isSendingRequest={isSendingRequest} autoAsk={autoAsk} />
         <div className="legend">
           <div className="legend-item">
             <div className="legend-color system"></div>

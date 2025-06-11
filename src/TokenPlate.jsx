@@ -1,6 +1,6 @@
 import { useTransition, animated } from '@react-spring/web'
 
-export default function TokenPlate({ tokens, contextSize }) {
+export default function TokenPlate({ tokens, contextSize, isSendingRequest }) {
   // Separate system tokens from user/response tokens
   const systemTokens = tokens.filter(token => token.type === 'system')
   const userResponseTokens = tokens.filter(token => token.type !== 'system')
@@ -31,7 +31,7 @@ export default function TokenPlate({ tokens, contextSize }) {
           <div className="content-area">
             {systemTransitions((style, token) => (
               <animated.div
-                className={`token-brick ${token.type}`}
+                className={`token-brick ${token.type} ${isSendingRequest ? 'sending-flash' : ''}`}
                 style={{
                   ...style,
                   width: `${token.length * 8}px`
@@ -48,7 +48,7 @@ export default function TokenPlate({ tokens, contextSize }) {
           <div className="content-area">
             {userResponseTransitions((style, token) => (
               <animated.div
-                className={`token-brick ${token.type}`}
+                className={`token-brick ${token.type} ${isSendingRequest ? 'sending-flash' : ''}`}
                 style={{
                   ...style,
                   width: `${token.length * 8}px`

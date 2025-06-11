@@ -1,4 +1,4 @@
-export default function TokenMeter({ counts, total }) {
+export default function TokenMeter({ counts, total, isSendingRequest, autoAsk }) {
   const used = counts.system + counts.user + counts.response
   const percentage = Math.min((used / total) * 100, 100)
 
@@ -12,7 +12,7 @@ export default function TokenMeter({ counts, total }) {
   return (
     <div className="token-meter">
       <div 
-        className="meter-bar"
+        className={`meter-bar ${isSendingRequest && !autoAsk ? 'slide-out' : ''}`}
         style={{ 
           background: getBackground(),
           height: '25px',
@@ -46,6 +46,11 @@ export default function TokenMeter({ counts, total }) {
             transition: 'width 0.3s ease'
           }}
         />
+      </div>
+      <div 
+        className={`sent-to-llm-text ${autoAsk ? 'visible pulsing' : (isSendingRequest ? 'visible' : '')}`}
+      >
+        Sent to LLM
       </div>
     </div>
   )
