@@ -11,8 +11,8 @@ function App() {
   const [contextSize, setContextSize] = useState(4096)
   const [tokens, setTokens] = useState([])
   const [tokenCounts, setTokenCounts] = useState({ system: 0, user: 0, response: 0 })
-  const [inputTokenPrice, setInputTokenPrice] = useState(0.000003)
-  const [outputTokenPrice, setOutputTokenPrice] = useState(0.000009)
+  const [inputTokenPrice, setInputTokenPrice] = useState(0.0750)
+  const [outputTokenPrice, setOutputTokenPrice] = useState(0.3)
   const [sessionTotalCost, setSessionTotalCost] = useState(0)
   const [totalTokensGenerated, setTotalTokensGenerated] = useState(0)
   const [requestCount, setRequestCount] = useState(0)
@@ -106,8 +106,11 @@ function App() {
           const requestCost = (inputTokenCount * inputTokenPrice) + (outputTokenCount * outputTokenPrice)
           
           // Add this request's cost to session total
-          setSessionTotalCost(prev => prev + requestCost)
-          setRequestCount(prev => prev + 1)
+          setSessionTotalCost(prev => {
+            console.log(prev , requestCost)
+            return prev + requestCost / 2.0
+          })
+          setRequestCount(prev => prev + 0.5)
           
           return finalTokens
         })
@@ -140,6 +143,7 @@ function App() {
     const responseTokenCount = initialResponseTokens.reduce((sum, token) => sum + token.length, 0)
     const initialRequestCost = (systemTokenCount * inputTokenPrice) + (responseTokenCount * outputTokenPrice)
     
+    console.log(initialRequestCost)
     setSessionTotalCost(initialRequestCost)
     setTotalTokensGenerated(systemTokenCount + responseTokenCount)
     setRequestCount(1)
@@ -167,6 +171,7 @@ function App() {
     const initialRequestCost = (systemTokenCount * inputTokenPrice) + (responseTokenCount * outputTokenPrice)
     
     // Set initial session cost and token counts
+    console.log(initialRequestCost)    
     setSessionTotalCost(initialRequestCost)
     setTotalTokensGenerated(systemTokenCount + responseTokenCount)
     setRequestCount(1)
@@ -193,7 +198,7 @@ function App() {
       acc[token.type] += token.length
       return acc
     }, { system: 0, user: 0, response: 0 })
-    console.log('Current tokens:', tokens)
+    //console.log('Current tokens:', tokens)
     console.log('Token counts:', counts)
     setTokenCounts(counts)
   }, [tokens])
@@ -238,26 +243,24 @@ function App() {
             </select>
           </label>
           <label>
-            Input Token Price: 
+            Input Token Price ($/1M): 
             <input
               type="number"
-              step="0.000001"
               min="0"
               value={inputTokenPrice}
-              onChange={(e) => setInputTokenPrice(Number(e.target.value))}
-              placeholder="$0.000003"
+              onChange={(e) => setInputTokenPrice(Number(e.target.value)/1000000)}
+              placeholder="$0.03"
               className="price-input"
             />
           </label>
           <label>
-            Output Token Price: 
+            Output Token Price ($/1M): 
             <input
               type="number"
-              step="0.000001"
               min="0"
               value={outputTokenPrice}
-              onChange={(e) => setOutputTokenPrice(Number(e.target.value))}
-              placeholder="$0.000009"
+              onChange={(e) => setOutputTokenPrice(Number(e.target.value)/1000000)}
+              placeholder="$0.09"
               className="price-input"
             />
           </label>
