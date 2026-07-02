@@ -1,19 +1,25 @@
-# LLM Token Simulator
+# LLM Context Window Simulator
 
-A visual simulator that demonstrates how Large Language Model (LLM) token consumption and billing works in real-time. This interactive tool helps users understand context windows, token eviction, and API pricing models.
+A visual simulator that demonstrates how a modern coding agent's context window is composed, consumed, and compacted — modelled on Claude Code's `/context` view. This interactive tool helps users understand that most of the window is **fixed overhead loaded before the first message** (system prompt, tools, MCP servers, memory, agents, skills), why adding MCP servers is so expensive, and how "context rot" sets in when old messages are evicted.
 
 ## Features
 
 ### 🎯 Core Functionality
-- **Visual Token Representation**: See tokens as coloured blocks with their lengths
-- **Context Window Simulation**: Configurable context sizes (1K to 32K tokens)
-- **Token Eviction**: Watch older tokens get removed when context fills up
-- **Real-time Billing**: Track costs with realistic API pricing
+- **`/context`-style breakdown**: The window is split into the same categories Claude Code reports, each with token counts and percentages.
+- **Grid block-map**: The signature colored-cell grid showing what fills the window.
+- **Interactive configuration**: Add/remove MCP servers, toggle skills and custom agents, and adjust system-prompt/memory/buffer size — the visuals update live.
+- **Autocompact & Context Rot**: When messages exceed the budget they are evicted, and a color-coded "Context Rot" warning (badge + toast + audio beep) surfaces the lost context.
+- **Real-time Billing**: Accurate per-request pricing — the full resent context is billed as input and only each turn's newly generated tokens as output, so cost growth over a conversation is realistic. Optional **prompt caching** bills the stable overhead prefix at 1.25× on first write then 0.1× on reads, with a live "cache saved" readout.
+- **Compact dashboard**: A fit-to-viewport layout (config panel · grid + breakdown · billing/controls strip) designed to show everything without page scrolling.
 
-### 🎨 Token Types
-- **Blue (System Tokens)**: Never evicted, always present at the top
-- **Green (User Query Tokens)**: Input from user prompts
-- **Purple (LLM Response Tokens)**: Generated responses from the AI
+### 🎨 Context Categories
+Loaded before the conversation even starts (never evicted):
+- **System prompt**, **System tools**, **MCP tools**, **Memory (CLAUDE.md)**, **Custom agents**, **Skills**
+
+The conversation and reserved space:
+- **Messages**: user (green), assistant (purple) and tool (orange) turns — the only evictable region
+- **Free space**: what's left
+- **Autocompact buffer**: reserved headroom held back from the window
 
 ### 💰 Billing Features
 - **Dual Pricing Model**: Separate input/output token pricing (3x multiplier)
@@ -93,40 +99,56 @@ The simulator uses realistic API pricing models:
 
 ```
 src/
-├── App.jsx           # Main application component
-├── App.js            # Legacy version (not used)
-├── App.css           # Application styles
-├── TokenPlate.jsx    # Visual token display component
-├── TokenMeter.jsx    # Horizontal token usage meter
-└── main.jsx          # React entry point
-
-public/
-└── index.html        # HTML template (backup)
+├── App.jsx                 # Main component: state, autocompact, billing, layout
+├── contextModel.js         # Category config, token estimates, breakdown/billing/compaction, rot severity
+├── ContextGrid.jsx         # /context-style colored grid block-map
+├── ContextBreakdown.jsx    # Per-category token counts + percentages
+├── ContextConfigPanel.jsx  # Interactive MCP / skills / agents / memory controls
+├── ContextRot.jsx          # Context Rot badge + toast
+├── i18n.js                 # Translation table (en/zh) + t() and language context
+├── TokenPlate.jsx          # Animated Messages (conversation) strip
+├── TokenMeter.jsx          # Data-driven usage meter (legacy; not mounted in the compact layout)
+├── App.css                 # Application styles
+└── main.jsx                # React entry point
 
 Root files:
-├── index.html        # Vite entry point
-├── package.json      # Dependencies and scripts
-├── vite.config.js    # Vite configuration
-└── README.md         # This file
+├── index.html              # Vite entry point
+├── package.json            # Dependencies and scripts
+├── vite.config.js          # Vite configuration
+└── README.md               # This file
 ```
+
+## Where your judgment shapes the model
+
+Four spots in the code are intentionally simple defaults, marked with `YOUR DESIGN CHOICE` comments, so you can tune the model's behavior:
+
+1. **Token-estimate heuristics** (`contextModel.js` → `ESTIMATE`) — tokens per MCP tool / skill / agent / memory-KB.
+2. **Autocompact strategy** (`contextModel.js` → `compactMessages`) — drop-oldest vs. summarize-and-keep-recent vs. protect-first-message.
+3. **Grid cell sizing / rounding** (`ContextGrid.jsx` → `CELL_COUNT` / `buildCells`).
+4. **Context Rot severity thresholds** (`contextModel.js` → `rotSeverity`).
 
 ## Configuration
 
 ### Default Settings
 
-- **Context Window**: 4,096 tokens
+- **Context Window**: 200,000 tokens (8K / 32K / 128K / 200K / 500K / 1M available)
+- **Starting profile**: a realistic Claude Code overhead load (~30-40% full on open)
 - **Input Token Price**: $0.000003 per token ($3 per million)
 - **Output Token Price**: $0.000009 per token ($9 per million)
-- **Auto Ask Interval**: 500ms
+- **Auto Ask Interval**: 1000ms
 
 ### Customisation
 
 All settings can be adjusted through the UI:
 
-- Context window size dropdown (1K, 2K, 4K, 8K, 32K tokens)
+- Context window size dropdown (8K, 32K, 128K, 200K, 500K, 1M tokens)
+- Interactive context configuration panel (MCP servers, skills, agents, memory, system prompt, autocompact buffer)
 - Input/output token price inputs
 - Auto mode toggle
-- Manual reset functionality
+- Prompt caching toggle (Cache) with a live "cache saved" pill
+- Context Rot beep mute toggle (🔊/🔇)
+- Language toggle (English / 中文)
+- Manual reset functionality (clears the conversation and restores the initial profile, window, and prices)
 
 ## Technology Stack
 

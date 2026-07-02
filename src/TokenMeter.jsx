@@ -1,55 +1,40 @@
-export default function TokenMeter({ counts, total, isSendingRequest, autoAsk }) {
-  const used = counts.system + counts.user + counts.response
-  const percentage = Math.min((used / total) * 100, 100)
+// TokenMeter.jsx
+// A single horizontal utilization bar, now data-driven: one segment per
+// category (in CATEGORIES order) sized by its share of the window. Keeps the
+// original "Sent to LLM" animation.
 
-  const getBackground = () => {
-    if (percentage >= 90) return '#ff4444'
-    if (percentage >= 80) return '#ffa500'
-    if (percentage >= 50) return '#ffdd00'
-    return '#f0f0f0'
-  }
+export default function TokenMeter({ breakdown, total, isSendingRequest, autoAsk }) {
+  // Everything except free space + reserved buffer counts as "used".
+  const used = breakdown
+    .filter((c) => !c.derived && !c.reserved)
+    .reduce((s, c) => s + c.tokens, 0)
+  const percentage = total ? Math.min((used / total) * 100, 100) : 0
+
+  const trackColor =
+    percentage >= 90 ? '#ff4444' : percentage >= 80 ? '#ffa500' : percentage >= 50 ? '#ffdd00' : '#f0f0f0'
 
   return (
     <div className="token-meter">
-      <div 
+      <div
         className={`meter-bar ${isSendingRequest && !autoAsk ? 'slide-out' : ''}`}
-        style={{ 
-          background: getBackground(),
-          height: '25px',
-          margin: '10px 0',
-          display: 'flex',
-          borderRadius: '4px',
-          overflow: 'hidden'
-        }}
+        style={{ background: trackColor }}
       >
-        <div
-          className="meter-segment system"
-          style={{
-            width: `${(counts.system / total) * 100}%`,
-            height: '100%',
-            transition: 'width 0.3s ease'
-          }}
-        />
-        <div
-          className="meter-segment user"
-          style={{
-            width: `${(counts.user / total) * 100}%`,
-            height: '100%',
-            transition: 'width 0.3s ease'
-          }}
-        />
-        <div
-          className="meter-segment response"
-          style={{
-            width: `${(counts.response / total) * 100}%`,
-            height: '100%',
-            transition: 'width 0.3s ease'
-          }}
-        />
+        {breakdown.map((c) => (
+          <div
+            key={c.key}
+            className="meter-segment"
+            style={{
+              width: `${total ? (c.tokens / total) * 100 : 0}%`,
+              background: c.derived ? 'transparent' : c.color,
+              opacity: c.reserved ? 0.35 : 1,
+              height: '100%',
+              transition: 'width 0.3s ease',
+            }}
+            title={`${c.label}: ${c.tokens.toLocaleString()} tokens`}
+          />
+        ))}
       </div>
-      <div 
-        className={`sent-to-llm-text ${autoAsk ? 'visible pulsing' : (isSendingRequest ? 'visible' : '')}`}
-      >
+      <div className={`sent-to-llm-text ${autoAsk ? 'visible pulsing' : isSendingRequest ? 'visible' : ''}`}>
         Sent to LLM
       </div>
     </div>

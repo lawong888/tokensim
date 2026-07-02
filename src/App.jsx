@@ -1,294 +1,321 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useTransition, animated } from '@react-spring/web'
-import { v4 as uuidv4 } from 'uuid'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { LangContext, makeT } from './i18n'
 import TokenPlate from './TokenPlate'
-import TokenMeter from './TokenMeter'
+import ContextGrid from './ContextGrid'
+import ContextBreakdown from './ContextBreakdown'
+import ContextConfigPanel from './ContextConfigPanel'
+import { ContextRotBadge, ContextRotToast } from './ContextRot'
+import {
+  computeBreakdown,
+  computeRequestCost,
+  compactMessages,
+  messageBudget,
+  makeMessage,
+  realisticProfile,
+  rotSeverity,
+  sumTokens,
+} from './contextModel'
 import './App.css'
 
-const CONTEXT_SIZES = [1024, 2048, 4096, 8192, 32768]
+const CONTEXT_SIZES = [
+  { value: 8192, label: '8K' },
+  { value: 32768, label: '32K' },
+  { value: 128000, label: '128K' },
+  { value: 200000, label: '200K' },
+  { value: 500000, label: '500K' },
+  { value: 1000000, label: '1M' },
+]
+const EMPTY_ROT = { events: 0, messagesLost: 0, tokensLost: 0, severity: 'none' }
+const INITIAL_CONTEXT_SIZE = 200000
+const INITIAL_INPUT_PRICE = 0.000003
 
 function App() {
-  const [contextSize, setContextSize] = useState(4096)
-  const [tokens, setTokens] = useState([])
-  const [tokenCounts, setTokenCounts] = useState({ system: 0, user: 0, response: 0 })
+  const [contextSize, setContextSize] = useState(200000)
+  const [config, setConfig] = useState(realisticProfile)
+  const [messages, setMessages] = useState([])
   const [inputTokenPrice, setInputTokenPrice] = useState(0.000003)
   const [outputTokenPrice, setOutputTokenPrice] = useState(0.000009)
   const [sessionTotalCost, setSessionTotalCost] = useState(0)
+  const [lastRequestCost, setLastRequestCost] = useState(0)
+  const [sessionCacheSaved, setSessionCacheSaved] = useState(0)
+  const [cachingEnabled, setCachingEnabled] = useState(false)
   const [totalTokensGenerated, setTotalTokensGenerated] = useState(0)
   const [requestCount, setRequestCount] = useState(0)
   const [autoAsk, setAutoAsk] = useState(false)
   const [isSendingRequest, setIsSendingRequest] = useState(false)
+  const [rot, setRot] = useState(EMPTY_ROT)
+  const [toast, setToast] = useState(null)
+  const [muted, setMuted] = useState(false)
+  const [lang, setLang] = useState('en')
+  const t = useMemo(() => makeT(lang), [lang])
 
-  // Calculate current request cost (entire context window)
-  const calculateCurrentRequestCost = () => {
-    const inputTokenCount = tokenCounts.system + tokenCounts.user
-    const outputTokenCount = tokenCounts.response
-    return (inputTokenCount * inputTokenPrice) + (outputTokenCount * outputTokenPrice)
-  }
+  // Refs let the async ask/auto flow read the latest values without
+  // recreating the (stable) askLLM callback and resetting the interval.
+  const messagesRef = useRef(messages)
+  const configRef = useRef(config)
+  const contextSizeRef = useRef(contextSize)
+  const inputPriceRef = useRef(inputTokenPrice)
+  const outputPriceRef = useRef(outputTokenPrice)
+  const mutedRef = useRef(muted)
+  const toastIdRef = useRef(0)
+  const beepCtxRef = useRef(null)
+  const cachingRef = useRef(cachingEnabled)
+  const cacheWarmRef = useRef(false)
 
-  const generateTokens = useCallback((type) => {
-    if (type === 'user') {
-      setIsSendingRequest(true);
-      setTimeout(() => setIsSendingRequest(false), 500); // Duration of the flash/animation trigger
+  useEffect(() => { configRef.current = config }, [config])
+  useEffect(() => { contextSizeRef.current = contextSize }, [contextSize])
+  useEffect(() => { inputPriceRef.current = inputTokenPrice }, [inputTokenPrice])
+  useEffect(() => { outputPriceRef.current = outputTokenPrice }, [outputTokenPrice])
+  useEffect(() => { mutedRef.current = muted }, [muted])
+  useEffect(() => { cachingRef.current = cachingEnabled }, [cachingEnabled])
+  // Changing the overhead (or toggling caching) invalidates the cached prefix,
+  // so the next billed request pays a fresh cache write.
+  useEffect(() => { cacheWarmRef.current = false }, [config, cachingEnabled])
+
+  // Short warning tone via Web Audio — no asset file needed. The AudioContext
+  // is created lazily on first use (which follows a user click, satisfying
+  // browser autoplay policies).
+  const playBeep = useCallback(() => {
+    if (mutedRef.current) return
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext
+      if (!Ctx) return
+      const ctx = beepCtxRef.current || (beepCtxRef.current = new Ctx())
+      if (ctx.state === 'suspended') ctx.resume()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.type = 'square'
+      osc.frequency.value = 660
+      const t = ctx.currentTime
+      gain.gain.setValueAtTime(0.0001, t)
+      gain.gain.exponentialRampToValueAtTime(0.2, t + 0.01)
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.18)
+      osc.start(t)
+      osc.stop(t + 0.2)
+    } catch {
+      /* audio is a nice-to-have; ignore failures */
     }
-
-    const newTokens = Array.from({ length: Math.floor(Math.random() * 5 + 1) }, () => ({
-      type,
-      length: Math.floor(Math.random() * 6 + 2),
-      id: uuidv4()
-    }))
-    
-    // Track total tokens generated (for statistics)
-    const newTokensCount = newTokens.reduce((sum, token) => sum + token.length, 0)
-    setTotalTokensGenerated(prev => prev + newTokensCount)
-    
-    setTokens(prev => {
-      // Keep system tokens separate and never evict them
-      const systemTokens = prev.filter(token => token.type === 'system')
-      const nonSystemTokens = prev.filter(token => token.type !== 'system')
-      const updated = [...systemTokens, ...nonSystemTokens, ...newTokens]
-      
-      // Calculate total length and evict oldest non-system tokens if needed
-      let totalLength = updated.reduce((sum, t) => sum + t.length, 0)
-      let startIndex = systemTokens.length // Never remove system tokens
-      
-      // Keep removing oldest non-system tokens until we're under context size
-      while (totalLength > contextSize && startIndex < updated.length) {
-        totalLength -= updated[startIndex].length
-        startIndex++
-      }
-      
-      return [...systemTokens, ...updated.slice(startIndex)]
-    })
-
-    // If we just added user tokens, automatically generate response tokens after a short delay
-    if (type === 'user') {
-      setTimeout(() => {
-        const responseTokens = Array.from({ length: Math.floor(Math.random() * 8 + 3) }, () => ({
-          type: 'response',
-          length: Math.floor(Math.random() * 6 + 2),
-          id: uuidv4()
-        }))
-        
-        // Track total response tokens generated
-        const responseTokensCount = responseTokens.reduce((sum, token) => sum + token.length, 0)
-        setTotalTokensGenerated(prev => prev + responseTokensCount)
-        
-        setTokens(prev => {
-          // Keep system tokens separate and never evict them
-          const systemTokens = prev.filter(token => token.type === 'system')
-          const nonSystemTokens = prev.filter(token => token.type !== 'system')
-          const updated = [...systemTokens, ...nonSystemTokens, ...responseTokens]
-          
-          // Calculate total length and evict oldest non-system tokens if needed
-          let totalLength = updated.reduce((sum, t) => sum + t.length, 0)
-          let startIndex = systemTokens.length // Never remove system tokens
-          
-          // Keep removing oldest non-system tokens until we're under context size
-          while (totalLength > contextSize && startIndex < updated.length) {
-            totalLength -= updated[startIndex].length
-            startIndex++
-          }
-          
-          const finalTokens = [...systemTokens, ...updated.slice(startIndex)]
-          
-          // Calculate the cost for this complete request (entire final context)
-          const finalCounts = finalTokens.reduce((acc, token) => {
-            if (typeof acc[token.type] === 'undefined') {
-              acc[token.type] = 0; // Initialize if type is unexpectedly not in accumulator
-            }
-            acc[token.type] += token.length;
-            return acc;
-          }, { system: 0, user: 0, response: 0 });
-          
-          const inputTokenCount = finalCounts.system + finalCounts.user
-          const outputTokenCount = finalCounts.response
-          const requestCost = (inputTokenCount * inputTokenPrice) + (outputTokenCount * outputTokenPrice)
-          
-          // Add this request's cost to session total
-          setSessionTotalCost(prev => prev + requestCost)
-          setRequestCount(prev => prev + 1)
-          
-          return finalTokens
-        })
-      }, 500)
-    }
-  }, [contextSize, inputTokenPrice, outputTokenPrice, setTokens, setTotalTokensGenerated, setSessionTotalCost, setRequestCount, setIsSendingRequest])
-
-  const resetSimulation = () => {
-    // Turn off auto ask when resetting
-    setAutoAsk(false)
-    
-    // Generate new random system tokens on reset
-    const systemTokens = Array.from({ length: Math.floor(Math.random() * 15 + 20) }, () => ({
-      type: 'system',
-      length: Math.floor(Math.random() * 4 + 2),
-      id: uuidv4()
-    }))
-    
-    // Generate initial response tokens for the system
-    const initialResponseTokens = Array.from({ length: Math.floor(Math.random() * 8 + 5) }, () => ({
-      type: 'response',
-      length: Math.floor(Math.random() * 6 + 2),
-      id: uuidv4()
-    }))
-    
-    setTokens([...systemTokens, ...initialResponseTokens])
-    
-    // Reset all costs and counters
-    const systemTokenCount = systemTokens.reduce((sum, token) => sum + token.length, 0)
-    const responseTokenCount = initialResponseTokens.reduce((sum, token) => sum + token.length, 0)
-    const initialRequestCost = (systemTokenCount * inputTokenPrice) + (responseTokenCount * outputTokenPrice)
-    
-    setSessionTotalCost(initialRequestCost)
-    setTotalTokensGenerated(systemTokenCount + responseTokenCount)
-    setRequestCount(1)
-  }
-
-  // Generate initial system tokens and response
-  useEffect(() => {
-    const systemTokens = Array.from({ length: Math.floor(Math.random() * 15 + 20) }, () => ({
-      type: 'system',
-      length: Math.floor(Math.random() * 4 + 2),
-      id: uuidv4()
-    }))
-    
-    const initialResponseTokens = Array.from({ length: Math.floor(Math.random() * 8 + 5) }, () => ({
-      type: 'response',
-      length: Math.floor(Math.random() * 6 + 2),
-      id: uuidv4()
-    }))
-    
-    setTokens([...systemTokens, ...initialResponseTokens])
-    
-    // Calculate initial request cost (entire context)
-    const systemTokenCount = systemTokens.reduce((sum, token) => sum + token.length, 0)
-    const responseTokenCount = initialResponseTokens.reduce((sum, token) => sum + token.length, 0)
-    const initialRequestCost = (systemTokenCount * inputTokenPrice) + (responseTokenCount * outputTokenPrice)
-    
-    // Set initial session cost and token counts
-    setSessionTotalCost(initialRequestCost)
-    setTotalTokensGenerated(systemTokenCount + responseTokenCount)
-    setRequestCount(1)
   }, [])
 
-  // Auto Ask LLM functionality
-  useEffect(() => {
-    let interval
-    if (autoAsk) {
-      interval = setInterval(() => {
-        generateTokens('user')
-      }, 500)
-    }
-    return () => {
-      if (interval) {
-        clearInterval(interval)
+  const commitMessages = useCallback((next) => {
+    messagesRef.current = next
+    setMessages(next)
+  }, [])
+
+  // Record a context-loss event: bump the running totals, flash a toast, beep.
+  const registerRot = useCallback((dropped) => {
+    const tokens = sumTokens(dropped)
+    setRot((prev) => {
+      const merged = {
+        events: prev.events + 1,
+        messagesLost: prev.messagesLost + dropped.length,
+        tokensLost: prev.tokensLost + tokens,
       }
+      return { ...merged, severity: rotSeverity(merged) }
+    })
+    const id = ++toastIdRef.current
+    setToast({ id, count: dropped.length, tokens })
+    setTimeout(() => setToast((t) => (t && t.id === id ? null : t)), 3500)
+    playBeep()
+  }, [playBeep])
+
+  // Append messages, run autocompact against the message budget, and
+  // optionally bill the completed request.
+  const addTurn = useCallback((newMsgs, bill) => {
+    setTotalTokensGenerated((p) => p + sumTokens(newMsgs))
+    const combined = [...messagesRef.current, ...newMsgs]
+    const budget = messageBudget(configRef.current, contextSizeRef.current)
+    const { kept, dropped } = compactMessages(combined, budget)
+    commitMessages(kept)
+    if (dropped.length) registerRot(dropped)
+    if (bill) {
+      const newOutputTokens = sumTokens(newMsgs.filter((m) => m.role === 'assistant'))
+      const { cost, cacheSaved } = computeRequestCost({
+        config: configRef.current,
+        messages: kept,
+        newOutputTokens,
+        inputPrice: inputPriceRef.current,
+        outputPrice: outputPriceRef.current,
+        caching: cachingRef.current,
+        cacheWarm: cacheWarmRef.current,
+      })
+      if (cachingRef.current) cacheWarmRef.current = true // prefix now cached → reads
+      setLastRequestCost(cost)
+      setSessionTotalCost((p) => p + cost)
+      setSessionCacheSaved((p) => p + cacheSaved)
+      setRequestCount((p) => p + 1)
     }
-  }, [autoAsk, generateTokens])
+  }, [commitMessages, registerRot])
 
-  // Update token counts
+  const askLLM = useCallback(() => {
+    setIsSendingRequest(true)
+    setTimeout(() => setIsSendingRequest(false), 500)
+
+    // User turn now...
+    addTurn([makeMessage('user')], false)
+
+    // ...assistant (sometimes with a bulky tool result) shortly after.
+    setTimeout(() => {
+      const resp = []
+      if (Math.random() < 0.5) resp.push(makeMessage('tool'))
+      resp.push(makeMessage('assistant'))
+      addTurn(resp, true)
+    }, 500)
+  }, [addTurn])
+
+  // Restore the full initial start configuration — overhead profile, window
+  // size, prices, an empty conversation, and all counters/rot state.
+  const resetSimulation = () => {
+    setAutoAsk(false)
+    setConfig(realisticProfile())
+    setContextSize(INITIAL_CONTEXT_SIZE)
+    setInputTokenPrice(INITIAL_INPUT_PRICE) // output price re-syncs to 3x via effect
+    setCachingEnabled(false)
+    commitMessages([]) // clear the conversation completely
+    setRot(EMPTY_ROT)
+    setToast(null)
+    setSessionTotalCost(0)
+    setLastRequestCost(0)
+    setSessionCacheSaved(0)
+    setRequestCount(0)
+    setTotalTokensGenerated(0)
+  }
+
+  // Growing overhead (more MCP/tools/memory) or a smaller window shrinks the
+  // message budget — which can evict conversation even without a new turn.
   useEffect(() => {
-    const counts = tokens.reduce((acc, token) => {
-      acc[token.type] += token.length
-      return acc
-    }, { system: 0, user: 0, response: 0 })
-    console.log('Current tokens:', tokens)
-    console.log('Token counts:', counts)
-    setTokenCounts(counts)
-  }, [tokens])
+    const budget = messageBudget(config, contextSize)
+    if (sumTokens(messagesRef.current) > budget) {
+      const { kept, dropped } = compactMessages(messagesRef.current, budget)
+      commitMessages(kept)
+      if (dropped.length) registerRot(dropped)
+    }
+  }, [config, contextSize, commitMessages, registerRot])
 
-  // Update output token price when input price changes
+  // Auto Ask LLM.
+  useEffect(() => {
+    if (!autoAsk) return
+    const interval = setInterval(askLLM, 1000)
+    return () => clearInterval(interval)
+  }, [autoAsk, askLLM])
+
+  // Keep output price at 3x input, matching the original model.
   useEffect(() => {
     setOutputTokenPrice(inputTokenPrice * 3)
   }, [inputTokenPrice])
 
-  const used = tokenCounts.system + tokenCounts.user + tokenCounts.response
-  const currentRequestCost = calculateCurrentRequestCost()
+  const breakdown = computeBreakdown(config, messages, contextSize)
 
   return (
-    <div className="app">
-      <h1>LLM Token Simulator</h1>
-      <div className="simulator-container">
-        <TokenPlate tokens={tokens} contextSize={contextSize} isSendingRequest={isSendingRequest} />
-        <div className="token-counts">
-          System: {tokenCounts.system} | User: {tokenCounts.user} | Response: {tokenCounts.response} | Free: {contextSize - used}
+    <LangContext.Provider value={{ lang, setLang, t }}>
+      <div className="app">
+        <header className="app-header">
+          <div className="app-title">
+            <h1>{t('app.title')}</h1>
+            <span className="subtitle">{t('app.subtitleA')} <code>/context</code>{t('app.subtitleB')}</span>
+          </div>
+          <ContextRotBadge rot={rot} />
+        </header>
+
+        <div className="dashboard">
+          {/* LEFT: interactive configuration (scrolls if tall) */}
+          <ContextConfigPanel config={config} setConfig={setConfig} />
+
+          {/* RIGHT: the /context view */}
+          <div className="context-view">
+            <div className="context-top">
+              <ContextGrid breakdown={breakdown} total={contextSize} isSendingRequest={isSendingRequest} />
+              <ContextBreakdown breakdown={breakdown} total={contextSize} />
+            </div>
+
+            {/* Cost impact sits between the window and the conversation so it's
+                visible on every Ask LLM. */}
+            <div className="billing-pills mid">
+              <span className="pill current" title={t('bill.currentTip')}>
+                {t('bill.current')} ${lastRequestCost.toFixed(6)}
+              </span>
+              <span className="pill session" title={t('bill.sessionTip')}>
+                {t('bill.session')} ${sessionTotalCost.toFixed(6)} · {requestCount} {t('bill.req')}
+              </span>
+              {cachingEnabled && (
+                <span className="pill saved" title={t('bill.savedTip')}>
+                  {t('bill.saved')} ${sessionCacheSaved.toFixed(6)}
+                </span>
+              )}
+              <span className="pill tokens" title={t('bill.tokensTip')}>
+                {totalTokensGenerated.toLocaleString()} {t('bill.tok')}
+              </span>
+            </div>
+
+            <TokenPlate messages={messages} isSendingRequest={isSendingRequest} />
+          </div>
         </div>
-        <div className="billing-section">
-          <div className="cost-display current-request">
-            Current Request Cost: ${currentRequestCost.toFixed(6)}
-          </div>
-          <div className="cost-display session-total">
-            Session Total: ${sessionTotalCost.toFixed(6)} ({requestCount} requests)
-          </div>
-          <div className="cost-display tokens-processed">
-            Total Tokens Generated: {totalTokensGenerated.toLocaleString()}
-          </div>
-        </div>
-        <div className="controls">
-          <label>
-            Context Window Size: 
-            <select 
-              value={contextSize} 
-              onChange={(e) => setContextSize(Number(e.target.value))}
+
+        {/* Bottom strip: toolbar + language toggle */}
+        <div className="bottom-strip">
+          <div className="toolbar">
+            <label className="ctl">
+              {t('ctl.window')}
+              <select value={contextSize} onChange={(e) => setContextSize(Number(e.target.value))}>
+                {CONTEXT_SIZES.map((size) => (
+                  <option key={size.value} value={size.value}>{size.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="ctl">
+              {t('ctl.inPrice')}
+              <input
+                type="number"
+                step="0.000001"
+                min="0"
+                value={inputTokenPrice}
+                onChange={(e) => setInputTokenPrice(Number(e.target.value))}
+                className="price-input"
+              />
+            </label>
+            <label className="ctl">
+              {t('ctl.outPrice')}
+              <input
+                type="number"
+                step="0.000001"
+                min="0"
+                value={outputTokenPrice}
+                onChange={(e) => setOutputTokenPrice(Number(e.target.value))}
+                className="price-input"
+              />
+            </label>
+            <button className="btn-ask" onClick={askLLM} disabled={autoAsk}>{t('ctl.ask')}</button>
+            <label className="ctl auto-toggle">
+              <input type="checkbox" checked={autoAsk} onChange={(e) => setAutoAsk(e.target.checked)} />
+              {t('ctl.auto')}
+            </label>
+            <label className="ctl auto-toggle" title={t('ctl.cacheTip')}>
+              <input type="checkbox" checked={cachingEnabled} onChange={(e) => setCachingEnabled(e.target.checked)} />
+              {t('ctl.cache')}
+            </label>
+            <button className="btn-reset" onClick={resetSimulation}>{t('ctl.reset')}</button>
+            <button
+              className={`mute-btn ${muted ? 'muted' : ''}`}
+              onClick={() => setMuted((m) => !m)}
+              title={t('ctl.muteTip')}
             >
-              {CONTEXT_SIZES.map(size => (
-                <option key={size} value={size}>{size.toLocaleString()} tokens</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Input Token Price: 
-            <input
-              type="number"
-              step="0.000001"
-              min="0"
-              value={inputTokenPrice}
-              onChange={(e) => setInputTokenPrice(Number(e.target.value))}
-              placeholder="$0.000003"
-              className="price-input"
-            />
-          </label>
-          <label>
-            Output Token Price: 
-            <input
-              type="number"
-              step="0.000001"
-              min="0"
-              value={outputTokenPrice}
-              onChange={(e) => setOutputTokenPrice(Number(e.target.value))}
-              placeholder="$0.000009"
-              className="price-input"
-            />
-          </label>
-          <button onClick={() => generateTokens('user')} disabled={autoAsk}>Ask LLM</button>
-          <label className="auto-toggle">
-            <input
-              type="checkbox"
-              checked={autoAsk}
-              onChange={(e) => setAutoAsk(e.target.checked)}
-            />
-            Auto Ask LLM
-          </label>
-          <button onClick={resetSimulation}>Reset</button>
+              {muted ? '🔇' : '🔊'}
+            </button>
+          </div>
+          <button
+            className="lang-btn"
+            onClick={() => setLang((l) => (l === 'en' ? 'zh' : 'en'))}
+            title="Language / 语言"
+          >
+            🌐 {t('lang.switch')}
+          </button>
         </div>
-        <TokenMeter counts={tokenCounts} total={contextSize} isSendingRequest={isSendingRequest} autoAsk={autoAsk} />
-        <div className="legend">
-          <div className="legend-item">
-            <div className="legend-color system"></div>
-            <span>Blue = System Tokens</span>
-          </div>
-          <div className="legend-item">
-            <div className="legend-color user"></div>
-            <span>Green = User Query Tokens</span>
-          </div>
-          <div className="legend-item">
-            <div className="legend-color response"></div>
-            <span>Purple = LLM Response Tokens</span>
-          </div>
-        </div>
+
+        <ContextRotToast toast={toast} />
       </div>
-    </div>
+    </LangContext.Provider>
   )
 }
 
