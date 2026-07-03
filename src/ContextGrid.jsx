@@ -8,9 +8,9 @@ import { useT } from './i18n'
 
 // ┌─ YOUR DESIGN CHOICE (learning-mode contribution point #3) ────────────┐
 // │ How many tokens does one cell represent, and how do partial cells     │
-// │ round? More cells = finer detail but a busier grid. Rounding decides  │
-// │ whether tiny categories (e.g. a 2k memory slice on a 200k window)     │
-// │ show up at all. Tune CELL_COUNT and the rounding in buildCells().     │
+// │ round? Each cell ≈ window / CELL_COUNT tokens. We give every NON-EMPTY │
+// │ category at least one cell so tiny slices (e.g. a small Summary on a   │
+// │ 200k window) never silently vanish; free space fills the remainder.   │
 // └───────────────────────────────────────────────────────────────────────┘
 const CELL_COUNT = 240 // total cells in the grid
 
@@ -18,12 +18,12 @@ function buildCells(breakdown, total) {
   const perCell = total / CELL_COUNT
   const cells = []
   for (const cat of breakdown) {
-    // Math.round means a category smaller than half a cell disappears;
-    // switch to Math.ceil to guarantee every non-empty category shows.
-    const n = Math.round(cat.tokens / perCell)
+    if (cat.key === 'freeSpace') continue // free space fills the remainder last
+    // Any non-empty category gets at least one cell so it's never invisible.
+    const n = cat.tokens > 0 ? Math.max(1, Math.round(cat.tokens / perCell)) : 0
     for (let i = 0; i < n && cells.length < CELL_COUNT; i++) cells.push(cat.key)
   }
-  // Pad any rounding shortfall with free space so the grid is always full.
+  // Whatever's left over is free space.
   while (cells.length < CELL_COUNT) cells.push('freeSpace')
   return cells
 }
@@ -40,11 +40,18 @@ export default function ContextGrid({ breakdown, total, isSendingRequest }) {
     >
       {cells.map((key, i) => {
         const cat = CATEGORY_BY_KEY[key]
+        // Free space + reserved buffer are themed via CSS (they need to flip
+        // for dark mode); category accents stay inline (they read on both).
+        const themed = key === 'freeSpace' || key === 'autocompactBuffer'
+        const cls =
+          key === 'freeSpace' ? 'grid-cell cell-free'
+          : key === 'autocompactBuffer' ? 'grid-cell cell-reserved'
+          : 'grid-cell'
         return (
           <span
             key={i}
-            className="grid-cell"
-            style={{ background: cat.color }}
+            className={cls}
+            style={themed ? undefined : { background: cat.color }}
             title={`${cat.glyph} ${t('cat.' + key)}`}
           />
         )

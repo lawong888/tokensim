@@ -11,7 +11,7 @@ import { useTransition, animated } from '@react-spring/web'
 import { MESSAGE_ROLE_COLOR, MESSAGE_ROLE_ICON } from './contextModel'
 import { useT } from './i18n'
 
-const ROLES = ['user', 'assistant', 'tool']
+const ROLES = ['user', 'assistant', 'tool', 'summary']
 
 export default function TokenPlate({ messages, isSendingRequest }) {
   const { t } = useT()

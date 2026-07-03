@@ -35,9 +35,11 @@ export function ContextRotBadge({ rot }) {
 export function ContextRotToast({ toast }) {
   const { t } = useT()
   if (!toast) return null
+  const summary = toast.mode === 'summary'
   return (
-    <div className="rot-toast" key={toast.id}>
-      ⚠ {t('toast.lost', { count: toast.count, tokens: fmtTokens(toast.tokens) })}
+    <div className={`rot-toast ${summary ? 'summary' : ''}`} key={toast.id}>
+      {summary ? '🗜️ ' : '⚠ '}
+      {t(summary ? 'toast.compacted' : 'toast.lost', { count: toast.count, tokens: fmtTokens(toast.tokens) })}
     </div>
   )
 }

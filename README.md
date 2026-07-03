@@ -8,7 +8,7 @@ A visual simulator that demonstrates how a modern coding agent's context window 
 - **`/context`-style breakdown**: The window is split into the same categories Claude Code reports, each with token counts and percentages.
 - **Grid block-map**: The signature colored-cell grid showing what fills the window.
 - **Interactive configuration**: Add/remove MCP servers, toggle skills and custom agents, and adjust system-prompt/memory/buffer size — the visuals update live.
-- **Autocompact & Context Rot**: When messages exceed the budget they are evicted, and a color-coded "Context Rot" warning (badge + toast + audio beep) surfaces the lost context.
+- **Autocompact & Context Rot**: An **Auto-Compact** toggle (default on) summarizes the oldest turns into a small 🗜 summary brick when the message budget is exceeded; turning it off hard-drops those turns instead. Either way a color-coded "Context Rot" warning (badge + toast + audio beep) accrues — summarizing degrades slower than dropping, but still degrades.
 - **Real-time Billing**: Accurate per-request pricing — the full resent context is billed as input and only each turn's newly generated tokens as output, so cost growth over a conversation is realistic. Optional **prompt caching** bills the stable overhead prefix at 1.25× on first write then 0.1× on reads, with a live "cache saved" readout.
 - **Compact dashboard**: A fit-to-viewport layout (config panel · grid + breakdown · billing/controls strip) designed to show everything without page scrolling.
 
@@ -141,10 +141,14 @@ Four spots in the code are intentionally simple defaults, marked with `YOUR DESI
 
 All settings can be adjusted through the UI:
 
-- Context window size dropdown (8K, 32K, 128K, 200K, 500K, 1M tokens)
+- Model dropdown (Claude Sonnet 5 / Opus 4.8 / Haiku 4.5, OpenAI Codex GPT-5.5, Zhipu GLM-4.6) — selecting sets per-1M price + context window; add/save/remove/reset custom models (persisted in the browser)
+- Light / dark theme toggle (🌙/☀️, persisted)
+- Price unit toggle (per 1M tokens ↔ per token)
+- Context window size dropdown (8K, 32K, 128K, 200K, 400K, 500K, 1M tokens)
 - Interactive context configuration panel (MCP servers, skills, agents, memory, system prompt, autocompact buffer)
 - Input/output token price inputs
 - Auto mode toggle
+- Auto-Compact toggle (summarize oldest turns vs. hard-drop them)
 - Prompt caching toggle (Cache) with a live "cache saved" pill
 - Context Rot beep mute toggle (🔊/🔇)
 - Language toggle (English / 中文)

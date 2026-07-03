@@ -27,6 +27,7 @@ export const CATEGORIES = [
   { key: 'memory',            label: 'Memory (CLAUDE.md)',  glyph: '⛁', color: '#8b5cf6', kind: 'input',  fixed: true },
   { key: 'customAgents',      label: 'Custom agents',       glyph: '⛁', color: '#ec4899', kind: 'input',  fixed: true },
   { key: 'skills',            label: 'Skills',              glyph: '⛁', color: '#eab308', kind: 'input',  fixed: true },
+  { key: 'summary',           label: 'Summary',             glyph: '🗜️', color: '#4d7c0f', kind: 'mixed' },
   { key: 'messages',          label: 'Messages',            glyph: '⛀', color: '#22c55e', kind: 'mixed',  evictable: true },
   { key: 'freeSpace',         label: 'Free space',          glyph: '⛶', color: '#e5e7eb', derived: true },
   { key: 'autocompactBuffer', label: 'Autocompact buffer',  glyph: '⛝', color: '#9ca3af', reserved: true },
@@ -42,11 +43,13 @@ export const MESSAGE_ROLE_COLOR = {
   user: '#22c55e',      // the Messages category key green
   assistant: '#16a34a', // darker green
   tool: '#4ade80',      // lighter green
+  summary: '#4d7c0f',   // olive green — a compacted summary of older turns
 }
 export const MESSAGE_ROLE_ICON = {
   user: '👤',
   assistant: '🤖',
   tool: '🔧',
+  summary: '🗜️',
 }
 export const MESSAGE_ROLE_LABEL = {
   user: 'User',
@@ -137,9 +140,13 @@ export function messageBudget(config, total) {
 // Returns CATEGORIES (in order) each annotated with { tokens, pct }.
 export function computeBreakdown(config, messages, total) {
   const u = computeUsage(config, messages, total)
+  // Split the Messages footprint into live conversation vs. compacted summary.
+  const summaryTokens = sumTokens(messages.filter((m) => m.role === 'summary'))
+  const convoTokens = Math.max(0, u.msgs - summaryTokens)
   const tokensByKey = {
     ...u.fixed,
-    messages: u.msgs,
+    messages: convoTokens,
+    summary: summaryTokens,
     freeSpace: u.free,
     autocompactBuffer: u.reserved,
   }
@@ -218,6 +225,48 @@ export function compactMessages(messages, budget) {
     sum -= removed.length
   }
   return { kept, dropped }
+}
+
+// ── Summary compaction (real "autocompact") ─────────────────────────────
+// Instead of deleting the oldest overflowing turns, fold them into a single
+// small summary message (lossy compression that keeps the gist). Returns
+// { kept, lostTokens, summarizedCount } where lostTokens is the raw token
+// delta freed (original − summary). A prior summary at the front is folded in
+// again, modelling summary-of-summary degradation.
+export const SUMMARY_RATIO = 0.12          // summary ≈ 12% of what it replaces
+export const SUMMARY_MIN = 200
+export const SUMMARY_MAX = 3000
+export const SUMMARY_LOSS_FRACTION = 0.25  // share of freed tokens that counts as rot
+
+function summaryTokenSize(tokens) {
+  return Math.min(SUMMARY_MAX, Math.max(SUMMARY_MIN, Math.round(tokens * SUMMARY_RATIO)))
+}
+
+export function makeSummary(tokens, count) {
+  return { id: uuidv4(), category: 'messages', role: 'summary', length: tokens, summarizedCount: count }
+}
+
+export function compactSummarize(messages, budget) {
+  const recent = [...messages]
+  const summarized = []
+  let recentSum = sumTokens(recent)
+
+  while (recent.length > 0) {
+    const summaryTokens = summarized.length ? summaryTokenSize(sumTokens(summarized)) : 0
+    if (recentSum + summaryTokens <= budget) break
+    const removed = recent.shift() // oldest (may itself be a prior summary → folded in)
+    summarized.push(removed)
+    recentSum -= removed.length
+  }
+
+  if (summarized.length === 0) return { kept: messages, lostTokens: 0, summarizedCount: 0 }
+
+  const summarizedTokens = sumTokens(summarized)
+  const summaryTokens = summaryTokenSize(summarizedTokens)
+  const lostTokens = Math.max(0, summarizedTokens - summaryTokens)
+  // Count folded-in prior summaries toward the turn tally too.
+  const count = summarized.reduce((n, m) => n + (m.role === 'summary' ? m.summarizedCount || 1 : 1), 0)
+  return { kept: [makeSummary(summaryTokens, count), ...recent], lostTokens, summarizedCount: count }
 }
 
 // ── Context Rot severity ────────────────────────────────────────────────
